@@ -36,7 +36,7 @@ jobs:
         RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
     - name: rust-grcov
       id: coverage
-      uses: actions-rs/grcov@v0.1.5
+      uses: actions-rs/grcov@v0.1.6
     - name: show report
       run: |
         echo ${{ steps.coverage.outputs.report }}
