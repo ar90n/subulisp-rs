@@ -1,3 +1,25 @@
 # subulisp-rs
+[![Build][build-shiled]][build-url]
+[![Contributors][contributors-shield]][contributors-url]
+[![Issues][issues-shield]][issues-url]
+[![Codecov][codecov-shield]][codecov-url]
+[![MIT][license-shield]][license-url]
 
-[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/ar90n/subulisp-rs/main.svg)](https://results.pre-commit.ci/latest/github/ar90n/subulisp-rs/main)
+## Requirements
+
+* pre-commit
+* Commitizen
+
+## License
+[MIT](https://github.com/ar90n/subulisp-rs/blob/main/LICENSE)
+
+[build-shiled]: https://img.shields.io/github/workflow/status/ar90n/subulisp-rs/CI%20testing/main
+[build-url]: https://github.com/ar90n/subulisp-rs/actions/workflows/ci-testing.yml
+[contributors-shield]: https://img.shields.io/github/contributors/ar90n/subulisp-rs.svg?style=flat
+[contributors-url]: https://github.com/ar90n/subulisp-rs/graphs/contributors
+[issues-shield]: https://img.shields.io/github/issues/ar90n/subulisp-rs.svg?style=flat
+[issues-url]: https://github.com/ar90n/subulisp-rs/issues
+[license-shield]: https://img.shields.io/github/license/ar90n/subulisp-rs.svg?style=flat
+[license-url]: https://github.com/ar90n/subulisp-rs/blob/main/LICENSE
+[codecov-shield]: https://codecov.io/gh/ar90n/subulisp-rs/branch/main/graph/badge.svg?token=8GKU96ODLY
+[codecov-url]: https://codecov.io/gh/ar90n/subulisp-rs
