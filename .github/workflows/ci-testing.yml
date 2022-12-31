@@ -1,0 +1,51 @@
+name: CI testing
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
+  cancel-in-progress: ${{ ! (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) }}
+
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 35
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+        components: rustfmt, clippy
+    - uses: Swatinem/rust-cache@v1
+    - uses: pre-commit/action@v3.0.0
+    - uses: pre-commit-ci/lite-action@v1.0.0
+      if: always()  
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
+      env:
+        CARGO_INCREMENTAL: '0'
+        RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+        RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+    - name: rust-grcov
+      id: coverage
+      uses: actions-rs/grcov@v0.1.5
+    - name: show report
+      run: |
+        echo ${{ steps.coverage.outputs.report }}
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ${{ steps.coverage.outputs.report }}
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: true
+        verbose: true

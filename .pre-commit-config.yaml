@@ -1,0 +1,19 @@
+repos:
+   - repo: https://github.com/commitizen-tools/commitizen
+     hooks:
+       - id: commitizen
+         stages:
+           - commit-msg
+     rev: v2.24.0
+   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+     hooks:
+         - id: commitlint
+           stages:
+             - commit-msg
+     rev: v9.3.0
+   - repo: https://github.com/doublify/pre-commit-rust
+     hooks:
+       - id: fmt
+       - id: cargo-check
+       - id: clippy
+     rev: v1.0
