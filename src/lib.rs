@@ -8,11 +8,76 @@ enum Token {
     Symbol(String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum Expr {
     Number(f64),
     Symbol(String),
     List(Vec<Expr>),
+}
+
+#[derive(Debug, PartialEq)]
+enum Result {
+    Number(f64),
+}
+
+#[derive(Debug)]
+struct Context {}
+
+impl Context {
+    #[allow(dead_code)]
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+type BuiltInFunc = fn(Vec<Expr>, &Context) -> anyhow::Result<Expr>;
+
+fn built_in_add(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    if args.len() != 2 {
+        anyhow::bail!("failed to add: invalid number of arguments: {:?}", args);
+    }
+
+    let lhs = evaluate_impl(args[0].clone(), ctx)?;
+    let rhs = evaluate_impl(args[1].clone(), ctx)?;
+    match (lhs, rhs) {
+        (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 + n2)),
+        _ => anyhow::bail!("failed to add: invalid arguments: {:?}", args),
+    }
+}
+
+fn built_in_sub(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    if args.len() != 2 {
+        anyhow::bail!("failed to sub: invalid number of arguments: {:?}", args);
+    }
+
+    let lhs = evaluate_impl(args[0].clone(), ctx)?;
+    let rhs = evaluate_impl(args[1].clone(), ctx)?;
+    match (lhs, rhs) {
+        (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 - n2)),
+        _ => anyhow::bail!("failed to sub: invalid arguments: {:?}", args),
+    }
+}
+
+fn built_in_mul(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    if args.len() != 2 {
+        anyhow::bail!("failed to mul: invalid number of arguments: {:?}", args);
+    }
+
+    let lhs = evaluate_impl(args[0].clone(), ctx)?;
+    let rhs = evaluate_impl(args[1].clone(), ctx)?;
+    match (lhs, rhs) {
+        (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 * n2)),
+        _ => anyhow::bail!("failed to mul: invalid arguments: {:?}", args),
+    }
+}
+
+fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
+    match name {
+        "+" => Some(built_in_add),
+        "-" => Some(built_in_sub),
+        "*" => Some(built_in_mul),
+        _ => None,
+    }
 }
 
 #[allow(dead_code)]
@@ -113,6 +178,38 @@ fn parse(tokens: &[Token]) -> anyhow::Result<Expr> {
     Ok(expr)
 }
 
+#[allow(dead_code)]
+fn evaluate_impl(expr: Expr, ctx: &Context) -> anyhow::Result<Expr> {
+    match expr {
+        Expr::List(elms) => {
+            let mut elms = elms.into_iter();
+            let func = elms.next().ok_or_else(|| {
+                anyhow::anyhow!("failed to evaluate list: empty list is not allowed")
+            })?;
+            let args = elms.collect::<Vec<_>>();
+            match func {
+                Expr::Symbol(s) => {
+                    if let Some(f) = get_built_in_func(&s) {
+                        f(args, ctx)
+                    } else {
+                        anyhow::bail!("failed to evaluate list: unknown symbol: {}", s)
+                    }
+                }
+                _ => anyhow::bail!("failed to evaluate list: invalid function: {:?}", func),
+            }
+        }
+        _ => Ok(expr),
+    }
+}
+
+#[allow(dead_code)]
+fn evaluate(expr: Expr, ctx: &Context) -> anyhow::Result<Result> {
+    match evaluate_impl(expr, ctx)? {
+        Expr::Number(n) => Ok(Result::Number(n)),
+        _ => unimplemented!(),
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -176,6 +273,31 @@ mod test {
                 Token::RightParen,
                 Token::RightParen,
             ])
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_evaluate() {
+        let ctx = Context::new();
+        assert_eq!(
+            Result::Number(-3.25),
+            evaluate(
+                Expr::List(vec![
+                    Expr::Symbol("*".to_string()),
+                    Expr::List(vec![
+                        Expr::Symbol("+".to_string()),
+                        Expr::Number(1.25),
+                        Expr::Number(2.0),
+                    ]),
+                    Expr::List(vec![
+                        Expr::Symbol("-".to_string()),
+                        Expr::Number(1.0),
+                        Expr::Number(2.0),
+                    ])
+                ]),
+                &ctx
+            )
             .unwrap()
         );
     }
