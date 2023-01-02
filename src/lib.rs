@@ -71,11 +71,25 @@ fn built_in_mul(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
     }
 }
 
+fn built_in_div(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    if args.len() != 2 {
+        anyhow::bail!("failed to div: invalid number of arguments: {:?}", args);
+    }
+
+    let lhs = evaluate_impl(args[0].clone(), ctx)?;
+    let rhs = evaluate_impl(args[1].clone(), ctx)?;
+    match (lhs, rhs) {
+        (Expr::Number(lv), Expr::Number(rv)) if rv != 0.0 => Ok(Expr::Number(lv / rv)),
+        _ => anyhow::bail!("failed to div: invalid arguments: {:?}", args),
+    }
+}
+
 fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
     match name {
         "+" => Some(built_in_add),
         "-" => Some(built_in_sub),
         "*" => Some(built_in_mul),
+        "/" => Some(built_in_div),
         _ => None,
     }
 }
