@@ -12,133 +12,17 @@ impl Context {
 
 type BuiltInFunc = fn(Vec<Expr>, &Context) -> anyhow::Result<Expr>;
 
-fn built_in_add(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
-    if args.len() != 2 {
-        anyhow::bail!("failed to add: invalid number of arguments: {:?}", args);
-    }
-
-    let lhs = evaluate(args[0].clone(), ctx)?;
-    let rhs = evaluate(args[1].clone(), ctx)?;
-    match (lhs, rhs) {
-        (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 + n2)),
-        _ => anyhow::bail!("failed to add: invalid arguments: {:?}", args),
-    }
-}
-
-fn built_in_sub(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
-    if args.len() != 2 {
-        anyhow::bail!("failed to sub: invalid number of arguments: {:?}", args);
-    }
-
-    let lhs = evaluate(args[0].clone(), ctx)?;
-    let rhs = evaluate(args[1].clone(), ctx)?;
-    match (lhs, rhs) {
-        (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 - n2)),
-        _ => anyhow::bail!("failed to sub: invalid arguments: {:?}", args),
-    }
-}
-
-fn built_in_mul(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
-    if args.len() != 2 {
-        anyhow::bail!("failed to mul: invalid number of arguments: {:?}", args);
-    }
-
-    let lhs = evaluate(args[0].clone(), ctx)?;
-    let rhs = evaluate(args[1].clone(), ctx)?;
-    match (lhs, rhs) {
-        (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 * n2)),
-        _ => anyhow::bail!("failed to mul: invalid arguments: {:?}", args),
-    }
-}
-
-fn built_in_div(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
-    if args.len() != 2 {
-        anyhow::bail!("failed to div: invalid number of arguments: {:?}", args);
-    }
-
-    let lhs = evaluate(args[0].clone(), ctx)?;
-    let rhs = evaluate(args[1].clone(), ctx)?;
-    match (lhs, rhs) {
-        (Expr::Number(lv), Expr::Number(rv)) if rv != 0.0 => Ok(Expr::Number(lv / rv)),
-        _ => anyhow::bail!("failed to div: invalid arguments: {:?}", args),
-    }
-}
-
-fn built_in_lt(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
-    if args.len() != 2 {
-        anyhow::bail!("failed to lt: invalid number of arguments: {:?}", args);
-    }
-
-    let lhs = evaluate(args[0].clone(), ctx)?;
-    let rhs = evaluate(args[1].clone(), ctx)?;
-    match (lhs, rhs) {
-        (Expr::Number(lv), Expr::Number(rv)) => Ok(Expr::Bool(lv < rv)),
-        _ => anyhow::bail!("failed to lt: invalid arguments: {:?}", args),
-    }
-}
-
-fn built_in_eq(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
-    if args.len() != 2 {
-        anyhow::bail!("failed to eq: invalid number of arguments: {:?}", args);
-    }
-
-    let lhs = evaluate(args[0].clone(), ctx)?;
-    let rhs = evaluate(args[1].clone(), ctx)?;
-    match (lhs, rhs) {
-        (Expr::Number(lv), Expr::Number(rv)) => Ok(Expr::Bool(lv == rv)),
-        _ => anyhow::bail!("failed to eq: invalid arguments: {:?}", args),
-    }
-}
-
-fn built_in_and(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
-    if args.len() != 2 {
-        anyhow::bail!("failed to and: invalid number of arguments: {:?}", args);
-    }
-
-    let lhs = evaluate(args[0].clone(), ctx)?;
-    let rhs = evaluate(args[1].clone(), ctx)?;
-    match (lhs, rhs) {
-        (Expr::Bool(lv), Expr::Bool(rv)) => Ok(Expr::Bool(lv & rv)),
-        _ => anyhow::bail!("failed to and: invalid arguments: {:?}", args),
-    }
-}
-
-fn built_in_not(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
-    if args.len() != 1 {
-        anyhow::bail!("failed to not: invalid number of arguments: {:?}", args);
-    }
-
-    let exp = evaluate(args[0].clone(), ctx)?;
-    match exp {
-        Expr::Bool(v) => Ok(Expr::Bool(!v)),
-        _ => anyhow::bail!("failed to not: invalid arguments: {:?}", args),
-    }
-}
-
-fn built_in_if(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
-    if args.len() != 3 {
-        anyhow::bail!("failed to not: invalid number of arguments: {:?}", args);
-    }
-
-    let cond = evaluate(args[0].clone(), ctx)?;
-    match cond {
-        Expr::Bool(c) if c => Ok(evaluate(args[1].clone(), ctx)?),
-        Expr::Bool(c) if !c => Ok(evaluate(args[2].clone(), ctx)?),
-        _ => anyhow::bail!("failed to if: invalid arguments: {:?}", args),
-    }
-}
-
 fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
     match name {
-        "+" => Some(built_in_add),
-        "-" => Some(built_in_sub),
-        "*" => Some(built_in_mul),
-        "/" => Some(built_in_div),
-        "<" => Some(built_in_lt),
-        "=" => Some(built_in_eq),
-        "&" => Some(built_in_and),
-        "!" => Some(built_in_not),
-        "if" => Some(built_in_if),
+        "+" => Some(built_in::add),
+        "-" => Some(built_in::sub),
+        "*" => Some(built_in::mul),
+        "/" => Some(built_in::div),
+        "<" => Some(built_in::lt),
+        "=" => Some(built_in::eq),
+        "&" => Some(built_in::and),
+        "!" => Some(built_in::not),
+        "if" => Some(built_in::if_),
         _ => None,
     }
 }
@@ -164,6 +48,128 @@ pub(crate) fn evaluate(expr: Expr, ctx: &Context) -> anyhow::Result<Expr> {
             }
         }
         _ => Ok(expr),
+    }
+}
+
+mod built_in {
+    use super::evaluate;
+    use super::Context;
+    use super::Expr;
+
+    pub(crate) fn add(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 2 {
+            anyhow::bail!("failed to add: invalid number of arguments: {:?}", args);
+        }
+
+        let lhs = evaluate(args[0].clone(), ctx)?;
+        let rhs = evaluate(args[1].clone(), ctx)?;
+        match (lhs, rhs) {
+            (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 + n2)),
+            _ => anyhow::bail!("failed to add: invalid arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn sub(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 2 {
+            anyhow::bail!("failed to sub: invalid number of arguments: {:?}", args);
+        }
+
+        let lhs = evaluate(args[0].clone(), ctx)?;
+        let rhs = evaluate(args[1].clone(), ctx)?;
+        match (lhs, rhs) {
+            (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 - n2)),
+            _ => anyhow::bail!("failed to sub: invalid arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn mul(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 2 {
+            anyhow::bail!("failed to mul: invalid number of arguments: {:?}", args);
+        }
+
+        let lhs = evaluate(args[0].clone(), ctx)?;
+        let rhs = evaluate(args[1].clone(), ctx)?;
+        match (lhs, rhs) {
+            (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 * n2)),
+            _ => anyhow::bail!("failed to mul: invalid arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn div(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 2 {
+            anyhow::bail!("failed to div: invalid number of arguments: {:?}", args);
+        }
+
+        let lhs = evaluate(args[0].clone(), ctx)?;
+        let rhs = evaluate(args[1].clone(), ctx)?;
+        match (lhs, rhs) {
+            (Expr::Number(lv), Expr::Number(rv)) if rv != 0.0 => Ok(Expr::Number(lv / rv)),
+            _ => anyhow::bail!("failed to div: invalid arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn lt(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 2 {
+            anyhow::bail!("failed to lt: invalid number of arguments: {:?}", args);
+        }
+
+        let lhs = evaluate(args[0].clone(), ctx)?;
+        let rhs = evaluate(args[1].clone(), ctx)?;
+        match (lhs, rhs) {
+            (Expr::Number(lv), Expr::Number(rv)) => Ok(Expr::Bool(lv < rv)),
+            _ => anyhow::bail!("failed to lt: invalid arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn eq(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 2 {
+            anyhow::bail!("failed to eq: invalid number of arguments: {:?}", args);
+        }
+
+        let lhs = evaluate(args[0].clone(), ctx)?;
+        let rhs = evaluate(args[1].clone(), ctx)?;
+        match (lhs, rhs) {
+            (Expr::Number(lv), Expr::Number(rv)) => Ok(Expr::Bool(lv == rv)),
+            _ => anyhow::bail!("failed to eq: invalid arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn and(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 2 {
+            anyhow::bail!("failed to and: invalid number of arguments: {:?}", args);
+        }
+
+        let lhs = evaluate(args[0].clone(), ctx)?;
+        let rhs = evaluate(args[1].clone(), ctx)?;
+        match (lhs, rhs) {
+            (Expr::Bool(lv), Expr::Bool(rv)) => Ok(Expr::Bool(lv & rv)),
+            _ => anyhow::bail!("failed to and: invalid arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn not(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 1 {
+            anyhow::bail!("failed to not: invalid number of arguments: {:?}", args);
+        }
+
+        let exp = evaluate(args[0].clone(), ctx)?;
+        match exp {
+            Expr::Bool(v) => Ok(Expr::Bool(!v)),
+            _ => anyhow::bail!("failed to not: invalid arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn if_(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 3 {
+            anyhow::bail!("failed to not: invalid number of arguments: {:?}", args);
+        }
+
+        let cond = evaluate(args[0].clone(), ctx)?;
+        match cond {
+            Expr::Bool(c) if c => Ok(evaluate(args[1].clone(), ctx)?),
+            Expr::Bool(c) if !c => Ok(evaluate(args[2].clone(), ctx)?),
+            _ => anyhow::bail!("failed to if: invalid arguments: {:?}", args),
+        }
     }
 }
 
