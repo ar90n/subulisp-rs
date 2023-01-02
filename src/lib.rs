@@ -112,6 +112,31 @@ fn built_in_eq(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
     }
 }
 
+fn built_in_and(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    if args.len() != 2 {
+        anyhow::bail!("failed to and: invalid number of arguments: {:?}", args);
+    }
+
+    let lhs = evaluate_impl(args[0].clone(), ctx)?;
+    let rhs = evaluate_impl(args[1].clone(), ctx)?;
+    match (lhs, rhs) {
+        (Expr::Bool(lv), Expr::Bool(rv)) => Ok(Expr::Bool(lv & rv)),
+        _ => anyhow::bail!("failed to and: invalid arguments: {:?}", args),
+    }
+}
+
+fn built_in_not(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    if args.len() != 1 {
+        anyhow::bail!("failed to not: invalid number of arguments: {:?}", args);
+    }
+
+    let exp = evaluate_impl(args[0].clone(), ctx)?;
+    match exp {
+        Expr::Bool(v) => Ok(Expr::Bool(!v)),
+        _ => anyhow::bail!("failed to not: invalid arguments: {:?}", args),
+    }
+}
+
 fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
     match name {
         "+" => Some(built_in_add),
@@ -120,6 +145,8 @@ fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
         "/" => Some(built_in_div),
         "<" => Some(built_in_lt),
         "=" => Some(built_in_eq),
+        "&" => Some(built_in_and),
+        "!" => Some(built_in_not),
         _ => None,
     }
 }
@@ -383,6 +410,26 @@ mod test {
                     Expr::Symbol("=".to_string()),
                     Expr::Number(1.25),
                     Expr::Number(1.25),
+                ]),
+                &ctx
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::Bool(true),
+            evaluate_impl(
+                Expr::List(vec![Expr::Symbol("!".to_string()), Expr::Bool(false),]),
+                &ctx
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::Bool(true),
+            evaluate_impl(
+                Expr::List(vec![
+                    Expr::Symbol("&".to_string()),
+                    Expr::Bool(true),
+                    Expr::Bool(true),
                 ]),
                 &ctx
             )
