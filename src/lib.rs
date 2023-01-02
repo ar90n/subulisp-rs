@@ -86,12 +86,40 @@ fn built_in_div(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
     }
 }
 
+fn built_in_lt(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    if args.len() != 2 {
+        anyhow::bail!("failed to lt: invalid number of arguments: {:?}", args);
+    }
+
+    let lhs = evaluate_impl(args[0].clone(), ctx)?;
+    let rhs = evaluate_impl(args[1].clone(), ctx)?;
+    match (lhs, rhs) {
+        (Expr::Number(lv), Expr::Number(rv)) => Ok(Expr::Bool(lv < rv)),
+        _ => anyhow::bail!("failed to lt: invalid arguments: {:?}", args),
+    }
+}
+
+fn built_in_eq(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    if args.len() != 2 {
+        anyhow::bail!("failed to eq: invalid number of arguments: {:?}", args);
+    }
+
+    let lhs = evaluate_impl(args[0].clone(), ctx)?;
+    let rhs = evaluate_impl(args[1].clone(), ctx)?;
+    match (lhs, rhs) {
+        (Expr::Number(lv), Expr::Number(rv)) => Ok(Expr::Bool(lv == rv)),
+        _ => anyhow::bail!("failed to eq: invalid arguments: {:?}", args),
+    }
+}
+
 fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
     match name {
         "+" => Some(built_in_add),
         "-" => Some(built_in_sub),
         "*" => Some(built_in_mul),
         "/" => Some(built_in_div),
+        "<" => Some(built_in_lt),
+        "=" => Some(built_in_eq),
         _ => None,
     }
 }
@@ -331,6 +359,30 @@ mod test {
                         Expr::Number(1.0),
                         Expr::Number(2.0),
                     ])
+                ]),
+                &ctx
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::Bool(true),
+            evaluate_impl(
+                Expr::List(vec![
+                    Expr::Symbol("<".to_string()),
+                    Expr::Number(1.25),
+                    Expr::Number(2.0),
+                ]),
+                &ctx
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::Bool(true),
+            evaluate_impl(
+                Expr::List(vec![
+                    Expr::Symbol("=".to_string()),
+                    Expr::Number(1.25),
+                    Expr::Number(1.25),
                 ]),
                 &ctx
             )
