@@ -115,6 +115,19 @@ fn built_in_not(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
     }
 }
 
+fn built_in_if(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    if args.len() != 3 {
+        anyhow::bail!("failed to not: invalid number of arguments: {:?}", args);
+    }
+
+    let cond = evaluate(args[0].clone(), ctx)?;
+    match cond {
+        Expr::Bool(c) if c => Ok(evaluate(args[1].clone(), ctx)?),
+        Expr::Bool(c) if !c => Ok(evaluate(args[2].clone(), ctx)?),
+        _ => anyhow::bail!("failed to if: invalid arguments: {:?}", args),
+    }
+}
+
 fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
     match name {
         "+" => Some(built_in_add),
@@ -125,6 +138,7 @@ fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
         "=" => Some(built_in_eq),
         "&" => Some(built_in_and),
         "!" => Some(built_in_not),
+        "if" => Some(built_in_if),
         _ => None,
     }
 }
@@ -219,6 +233,32 @@ mod test {
                     Expr::Symbol("&".to_string()),
                     Expr::Bool(true),
                     Expr::Bool(true),
+                ]),
+                &ctx
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::Number(1.0),
+            evaluate(
+                Expr::List(vec![
+                    Expr::Symbol("if".to_string()),
+                    Expr::Bool(true),
+                    Expr::Number(1.0),
+                    Expr::Number(2.0),
+                ]),
+                &ctx
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::Number(2.0),
+            evaluate(
+                Expr::List(vec![
+                    Expr::Symbol("if".to_string()),
+                    Expr::Bool(false),
+                    Expr::Number(1.0),
+                    Expr::Number(2.0),
                 ]),
                 &ctx
             )
