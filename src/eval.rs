@@ -48,8 +48,8 @@ fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
         "<" => Some(built_in::lt),
         "=" => Some(built_in::eq),
         "&" => Some(built_in::and),
-        "|" => Some(built_in::or),
         "!" => Some(built_in::not),
+        "if" => Some(built_in::if_),
         _ => None,
     }
 }
@@ -173,27 +173,13 @@ mod built_in {
             anyhow::bail!("failed to and: invalid number of arguments: {:?}", args);
         }
 
-        let cond = evaluate(args[0].clone(), ctx)?;
-        match cond {
-            Expr::Bool(c) if c => Ok(evaluate(args[1].clone(), ctx)?),
-            Expr::Bool(c) if !c => Ok(Expr::Bool(false)),
+        let lhs = evaluate(args[0].clone(), ctx)?;
+        match lhs {
+            Expr::Bool(v) if v => Ok(evaluate(args[1].clone(), ctx)?),
+            Expr::Bool(v) if !v => Ok(Expr::Bool(false)),
             _ => anyhow::bail!("failed to if: invalid arguments: {:?}", args),
         }
     }
-
-    pub(crate) fn or(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
-        if args.len() != 2 {
-            anyhow::bail!("failed to and: invalid number of arguments: {:?}", args);
-        }
-
-        let cond = evaluate(args[0].clone(), ctx)?;
-        match cond {
-            Expr::Bool(c) if c => Ok(Expr::Bool(true)),
-            Expr::Bool(c) if !c => Ok(evaluate(args[1].clone(), ctx)?),
-            _ => anyhow::bail!("failed to if: invalid arguments: {:?}", args),
-        }
-    }
-
     pub(crate) fn not(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
         if args.len() != 1 {
             anyhow::bail!("failed to not: invalid number of arguments: {:?}", args);
@@ -203,6 +189,19 @@ mod built_in {
         match exp {
             Expr::Bool(v) => Ok(Expr::Bool(!v)),
             _ => anyhow::bail!("failed to not: invalid arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn if_(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 3 {
+            anyhow::bail!("failed to if: invalid number of arguments: {:?}", args);
+        }
+
+        let cond = evaluate(args[0].clone(), ctx)?;
+        match cond {
+            Expr::Bool(c) if c => Ok(evaluate(args[1].clone(), ctx)?),
+            Expr::Bool(c) if !c => Ok(evaluate(args[2].clone(), ctx)?),
+            _ => anyhow::bail!("failed to if: invalid arguments: {:?}", args),
         }
     }
 }
@@ -281,12 +280,13 @@ mod test {
             .unwrap()
         );
         assert_eq!(
-            Expr::Bool(true),
+            Expr::Number(1.25),
             evaluate(
                 Expr::List(vec![
-                    Expr::Symbol("|".to_string()),
-                    Expr::Bool(false),
+                    Expr::Symbol("if".to_string()),
                     Expr::Bool(true),
+                    Expr::Number(1.25),
+                    Expr::Number(2.0),
                 ]),
                 &ctx
             )
