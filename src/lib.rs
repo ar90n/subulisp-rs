@@ -5,12 +5,14 @@ enum Token {
     LeftParen,
     RightParen,
     Number(f64),
+    Bool(bool),
     Symbol(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 enum Expr {
     Number(f64),
+    Bool(bool),
     Symbol(String),
     List(Vec<Expr>),
 }
@@ -110,6 +112,12 @@ fn tokenize(code: &str) -> anyhow::Result<Vec<Token>> {
             .or(Err(anyhow::anyhow!("failed to parse token as number")))
     }
 
+    fn parse_bool(s: &str) -> anyhow::Result<Token> {
+        s.parse::<bool>()
+            .map(Token::Bool)
+            .or(Err(anyhow::anyhow!("failed to parse token as bool")))
+    }
+
     fn parse_symbol(s: &str) -> anyhow::Result<Token> {
         Ok(Token::Symbol(s.to_string()))
     }
@@ -117,6 +125,7 @@ fn tokenize(code: &str) -> anyhow::Result<Vec<Token>> {
     fn parse(s: &str) -> anyhow::Result<Token> {
         parse_paren(s)
             .or_else(|_| parse_number(s))
+            .or_else(|_| parse_bool(s))
             .or_else(|_| parse_symbol(s))
             .or(Err(anyhow::anyhow!("failed to parse token: {}", s)))
     }
@@ -142,6 +151,16 @@ fn parse(tokens: &[Token]) -> anyhow::Result<Expr> {
             [Token::Number(n), rest @ ..] => Ok((Expr::Number(*n), rest)),
             _ => Err(anyhow::anyhow!(
                 "failed to parse token as number. tokens: {:?}",
+                tokens
+            )),
+        }
+    }
+
+    fn parse_bool(tokens: &[Token]) -> anyhow::Result<(Expr, &[Token])> {
+        match tokens {
+            [Token::Bool(b), rest @ ..] => Ok((Expr::Bool(*b), rest)),
+            _ => Err(anyhow::anyhow!(
+                "failed to parse token as bool. tokens: {:?}",
                 tokens
             )),
         }
@@ -178,6 +197,7 @@ fn parse(tokens: &[Token]) -> anyhow::Result<Expr> {
     fn parse_impl(tokens: &[Token]) -> anyhow::Result<(Expr, &[Token])> {
         parse_list(tokens)
             .or_else(|_| parse_number(tokens))
+            .or_else(|_| parse_bool(tokens))
             .or_else(|_| parse_symbol(tokens))
     }
 
@@ -244,9 +264,11 @@ mod test {
                 Token::Number(1.0),
                 Token::Number(2.0),
                 Token::RightParen,
+                Token::Bool(true),
+                Token::Bool(false),
                 Token::RightParen,
             ],
-            tokenize("(* (+ 1.25 2.0) (- 1.0 2.0))").unwrap()
+            tokenize("(* (+ 1.25 2.0) (- 1.0 2.0) true false)").unwrap()
         );
     }
 
