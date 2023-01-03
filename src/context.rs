@@ -66,6 +66,20 @@ pub(crate) fn create_root_context() -> Context<'static> {
         },
     );
     context.register(
+        "!=",
+        Func {
+            args: vec!["lhs".to_string(), "rhs".to_string()],
+            body: Expr::List(vec![
+                Expr::Symbol("!".to_string()),
+                Expr::List(vec![
+                    Expr::Symbol("=".to_string()),
+                    Expr::Symbol("lhs".to_string()),
+                    Expr::Symbol("rhs".to_string()),
+                ]),
+            ]),
+        },
+    );
+    context.register(
         "<=",
         Func {
             args: vec!["lhs".to_string(), "rhs".to_string()],
@@ -109,6 +123,28 @@ pub(crate) fn create_root_context() -> Context<'static> {
                     Expr::Symbol("lhs".to_string()),
                     Expr::Symbol("rhs".to_string()),
                 ]),
+            ]),
+        },
+    );
+    context.register(
+        "incf",
+        Func {
+            args: vec!["v".to_string()],
+            body: Expr::List(vec![
+                Expr::Symbol("+".to_string()),
+                Expr::Symbol("v".to_string()),
+                Expr::Number(1.0),
+            ]),
+        },
+    );
+    context.register(
+        "decf",
+        Func {
+            args: vec!["v".to_string()],
+            body: Expr::List(vec![
+                Expr::Symbol("-".to_string()),
+                Expr::Symbol("v".to_string()),
+                Expr::Number(1.0),
             ]),
         },
     );
