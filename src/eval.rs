@@ -13,6 +13,9 @@ fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
         "=" => Some(built_in::eq),
         "&" => Some(built_in::and),
         "!" => Some(built_in::not),
+        "list" => Some(built_in::list),
+        "car" => Some(built_in::car),
+        "cdr" => Some(built_in::cdr),
         "if" => Some(built_in::if_),
         _ => None,
     }
@@ -167,6 +170,40 @@ mod built_in {
             Expr::Bool(c) if c => Ok(evaluate(args[1].clone(), ctx)?),
             Expr::Bool(c) if !c => Ok(evaluate(args[2].clone(), ctx)?),
             _ => anyhow::bail!("failed to if: invalid arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn list(args: Vec<Expr>, _ctx: &Context) -> anyhow::Result<Expr> {
+        Ok(Expr::List(args))
+    }
+
+    pub(crate) fn car(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 1 {
+            anyhow::bail!("failed to car: invalid number of arguments: {:?}", args);
+        }
+
+        let ret = evaluate(args[0].clone(), ctx)?;
+        match ret {
+            Expr::List(es) => match es.split_first() {
+                Some((e, _)) => Ok(e.clone()),
+                _ => anyhow::bail!("failed to car: invalid number of arguments: {:?}", args),
+            },
+            _ => anyhow::bail!("failed to car: invalid number of arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn cdr(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        if args.len() != 1 {
+            anyhow::bail!("failed to car: invalid number of arguments: {:?}", args);
+        }
+
+        let ret = evaluate(args[0].clone(), ctx)?;
+        match ret {
+            Expr::List(es) => match es.split_first() {
+                Some((_, rest)) => Ok(Expr::List(rest.to_vec())),
+                _ => anyhow::bail!("failed to cdr: invalid number of arguments: {:?}", args),
+            },
+            _ => anyhow::bail!("failed to cdr: invalid number of arguments: {:?}", args),
         }
     }
 
@@ -391,6 +428,41 @@ mod test {
                     Expr::Symbol("<=".to_string()),
                     Expr::Number(1.0),
                     Expr::Number(1.0),
+                ]),
+                &ctx3
+            )
+            .unwrap()
+        );
+
+        assert_eq!(
+            Expr::List(vec![Expr::Number(1.0), Expr::Number(2.0)]),
+            evaluate(
+                Expr::List(vec![
+                    Expr::Symbol("list".to_string()),
+                    Expr::Number(1.0),
+                    Expr::Number(2.0),
+                ]),
+                &ctx3
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::Number(1.0),
+            evaluate(
+                Expr::List(vec![
+                    Expr::Symbol("car".to_string()),
+                    Expr::List(vec![Expr::Number(1.0), Expr::Number(2.0)]),
+                ]),
+                &ctx3
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::List(vec![Expr::Number(2.0)]),
+            evaluate(
+                Expr::List(vec![
+                    Expr::Symbol("cdr".to_string()),
+                    Expr::List(vec![Expr::Number(1.0), Expr::Number(2.0)]),
                 ]),
                 &ctx3
             )
