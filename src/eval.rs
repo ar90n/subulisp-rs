@@ -3,8 +3,14 @@ use std::collections::HashMap;
 use super::expr::Expr;
 
 #[derive(Debug)]
+pub(crate) struct Func {
+    args: Vec<String>,
+    body: Expr,
+}
+
+#[derive(Debug)]
 pub(crate) struct Context<'a> {
-    env: HashMap<String, Expr>,
+    env: HashMap<String, Func>,
     parent: Option<&'a Context<'a>>,
 }
 
@@ -17,24 +23,97 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn resolve(&self, name: &str) -> Option<&Expr> {
+    pub fn resolve(&self, name: &str) -> Option<&Func> {
         self.env
             .get(name)
             .or_else(|| self.parent.as_ref().and_then(|p| p.resolve(name)))
     }
 
     #[allow(dead_code)]
-    pub fn register(&mut self, name: &str, expr: Expr) {
-        self.env.insert(name.to_string(), expr);
+    pub fn register(&mut self, name: &str, func: Func) {
+        self.env.insert(name.to_string(), func);
     }
 
     #[allow(dead_code)]
-    pub fn with(&'a self, env: HashMap<String, Expr>) -> Context<'a> {
+    pub fn with(&'a self, env: HashMap<String, Func>) -> Context<'a> {
         Self {
             env,
             parent: Some(self),
         }
     }
+}
+
+#[allow(dead_code)]
+fn creat_root_context() -> Context<'static> {
+    let mut context = Context::new();
+    context.register(
+        "|",
+        Func {
+            args: vec!["lhs".to_string(), "rhs".to_string()],
+            body: Expr::List(vec![
+                Expr::Symbol("!".to_string()),
+                Expr::List(vec![
+                    Expr::Symbol("&".to_string()),
+                    Expr::List(vec![
+                        Expr::Symbol("!".to_string()),
+                        Expr::Symbol("lhs".to_string()),
+                    ]),
+                    Expr::List(vec![
+                        Expr::Symbol("!".to_string()),
+                        Expr::Symbol("rhs".to_string()),
+                    ]),
+                ]),
+            ]),
+        },
+    );
+    context.register(
+        "<=",
+        Func {
+            args: vec!["lhs".to_string(), "rhs".to_string()],
+            body: Expr::List(vec![
+                Expr::Symbol("|".to_string()),
+                Expr::List(vec![
+                    Expr::Symbol("<".to_string()),
+                    Expr::Symbol("lhs".to_string()),
+                    Expr::Symbol("rhs".to_string()),
+                ]),
+                Expr::List(vec![
+                    Expr::Symbol("=".to_string()),
+                    Expr::Symbol("lhs".to_string()),
+                    Expr::Symbol("rhs".to_string()),
+                ]),
+            ]),
+        },
+    );
+    context.register(
+        ">",
+        Func {
+            args: vec!["lhs".to_string(), "rhs".to_string()],
+            body: Expr::List(vec![
+                Expr::Symbol("!".to_string()),
+                Expr::List(vec![
+                    Expr::Symbol("<=".to_string()),
+                    Expr::Symbol("lhs".to_string()),
+                    Expr::Symbol("rhs".to_string()),
+                ]),
+            ]),
+        },
+    );
+    context.register(
+        ">=",
+        Func {
+            args: vec!["lhs".to_string(), "rhs".to_string()],
+            body: Expr::List(vec![
+                Expr::Symbol("!".to_string()),
+                Expr::List(vec![
+                    Expr::Symbol("<".to_string()),
+                    Expr::Symbol("lhs".to_string()),
+                    Expr::Symbol("rhs".to_string()),
+                ]),
+            ]),
+        },
+    );
+    context
 }
 
 type BuiltInFunc = fn(Vec<Expr>, &Context) -> anyhow::Result<Expr>;
@@ -57,26 +136,22 @@ fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
 #[allow(dead_code)]
 pub(crate) fn evaluate(expr: Expr, ctx: &Context) -> anyhow::Result<Expr> {
     match expr {
-        Expr::List(elms) => {
-            let mut elms = elms.into_iter();
-            let func = elms.next().ok_or_else(|| {
-                anyhow::anyhow!("failed to evaluate list: empty list is not allowed")
-            })?;
-            let args = elms.collect::<Vec<_>>();
-            match func {
-                Expr::Symbol(s) => {
-                    if let Some(f) = get_built_in_func(&s) {
-                        f(args, ctx)
-                    } else {
-                        anyhow::bail!("failed to evaluate list: unknown symbol: {}", s)
-                    }
+        Expr::List(elms) => match elms.clone().split_first() {
+            Some((Expr::Symbol(s), args)) => {
+                if let Some(f) = get_built_in_func(s) {
+                    let vs = args.to_vec();
+                    f(vs, ctx)
+                } else if let Some(_expr) = ctx.resolve(s) {
+                    built_in::call(elms, ctx)
+                } else {
+                    anyhow::bail!("failed to evaluate list: unknown symbol: {}", s)
                 }
-                _ => anyhow::bail!("failed to evaluate list: invalid function: {:?}", func),
             }
-        }
+            _ => Ok(Expr::List(elms)),
+        },
         Expr::Symbol(s) => {
-            if let Some(expr) = ctx.resolve(&s) {
-                Ok(expr.clone())
+            if let Some(_func) = ctx.resolve(&s) {
+                built_in::call(vec![Expr::Symbol(s)], ctx)
             } else {
                 anyhow::bail!("failed to evaluate symbol: unknown symbol: {}", s)
             }
@@ -86,9 +161,14 @@ pub(crate) fn evaluate(expr: Expr, ctx: &Context) -> anyhow::Result<Expr> {
 }
 
 mod built_in {
+    use std::collections::HashMap;
+
     use super::evaluate;
     use super::Context;
     use super::Expr;
+    use super::Func;
+    use rand::distributions::Alphanumeric;
+    use rand::{thread_rng, Rng};
 
     pub(crate) fn add(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
         if args.len() != 2 {
@@ -204,6 +284,56 @@ mod built_in {
             _ => anyhow::bail!("failed to if: invalid arguments: {:?}", args),
         }
     }
+
+    pub(crate) fn call(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+        match args.split_first() {
+            Some((Expr::Symbol(s), args)) => match ctx.resolve(s) {
+                Some(f) => {
+                    let mut rng = thread_rng();
+                    let suffix = (0..10)
+                        .map(|_| rng.sample(Alphanumeric) as char)
+                        .collect::<String>();
+
+                    fn remap_symbol(e: Expr, suffix: &str, args: &Vec<String>) -> Expr {
+                        match e {
+                            Expr::Symbol(s) => {
+                                if args.contains(&s) {
+                                    Expr::Symbol(format!("{}_{}", s, suffix))
+                                } else {
+                                    Expr::Symbol(s)
+                                }
+                            }
+                            Expr::List(es) => Expr::List(
+                                es.into_iter()
+                                    .map(|e| remap_symbol(e, suffix, args))
+                                    .collect(),
+                            ),
+                            _ => e,
+                        }
+                    }
+                    let body = remap_symbol(f.body.clone(), &suffix, &f.args);
+
+                    let env = args
+                        .iter()
+                        .zip(f.args.iter())
+                        .map(|(e, n)| {
+                            (
+                                format!("{}_{}", n, suffix),
+                                Func {
+                                    args: vec![],
+                                    body: e.clone(),
+                                },
+                            )
+                        })
+                        .collect::<HashMap<String, Func>>();
+                    let ctx = ctx.with(env);
+                    evaluate(body, &ctx)
+                }
+                None => anyhow::bail!("failed to call: invalid arguments: {:?}", args),
+            },
+            _ => anyhow::bail!("failed to call: invalid arguments 22 : {:?}", args),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -293,15 +423,34 @@ mod test {
             .unwrap()
         );
 
-        ctx.register("A", Expr::Number(1.0));
-        ctx.register("B", Expr::Number(2.0));
+        ctx.register(
+            "A",
+            Func {
+                args: vec![],
+                body: Expr::Number(1.0),
+            },
+        );
+        ctx.register(
+            "B",
+            Func {
+                args: vec![],
+                body: Expr::Number(2.0),
+            },
+        );
+
         assert_eq!(
             Expr::Number(1.0),
             evaluate(Expr::Symbol("A".to_string()), &ctx).unwrap()
         );
 
         let mut env2 = HashMap::new();
-        env2.insert("A".to_string(), Expr::Number(3.0));
+        env2.insert(
+            "A".to_string(),
+            Func {
+                args: vec![],
+                body: Expr::Number(3.0),
+            },
+        );
         let ctx2 = ctx.with(env2);
         assert_eq!(
             Expr::Number(3.0),
@@ -310,6 +459,55 @@ mod test {
         assert_eq!(
             Expr::Number(2.0),
             evaluate(Expr::Symbol("B".to_string()), &ctx2).unwrap()
+        );
+        let ctx3 = creat_root_context();
+        assert_eq!(
+            Expr::Bool(true),
+            evaluate(
+                Expr::List(vec![
+                    Expr::Symbol("|".to_string()),
+                    Expr::Bool(true),
+                    Expr::Bool(true),
+                ]),
+                &ctx3
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::Bool(true),
+            evaluate(
+                Expr::List(vec![
+                    Expr::Symbol("|".to_string()),
+                    Expr::Bool(false),
+                    Expr::Bool(true),
+                ]),
+                &ctx3
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::Bool(false),
+            evaluate(
+                Expr::List(vec![
+                    Expr::Symbol("|".to_string()),
+                    Expr::Bool(false),
+                    Expr::Bool(false),
+                ]),
+                &ctx3
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::Bool(true),
+            evaluate(
+                Expr::List(vec![
+                    Expr::Symbol("<=".to_string()),
+                    Expr::Number(1.0),
+                    Expr::Number(1.0),
+                ]),
+                &ctx3
+            )
+            .unwrap()
         );
     }
 }
