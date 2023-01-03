@@ -12,7 +12,7 @@ enum Result {
 }
 
 #[allow(dead_code)]
-fn evaluate(expr: expr::Expr, ctx: &Context) -> anyhow::Result<Result> {
+fn evaluate(expr: expr::Expr, ctx: &mut Context) -> anyhow::Result<Result> {
     match eval::evaluate(expr, ctx)? {
         expr::Expr::Number(n) => Ok(Result::Number(n)),
         _ => unimplemented!(),

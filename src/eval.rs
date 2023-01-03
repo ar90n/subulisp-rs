@@ -1,7 +1,7 @@
 use super::context::Context;
 use super::expr::Expr;
 
-type BuiltInFunc = fn(Vec<Expr>, &Context) -> anyhow::Result<Expr>;
+type BuiltInFunc = fn(Vec<Expr>, &mut Context) -> anyhow::Result<Expr>;
 
 fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
     match name {
@@ -17,12 +17,14 @@ fn get_built_in_func(name: &str) -> Option<BuiltInFunc> {
         "car" => Some(built_in::car),
         "cdr" => Some(built_in::cdr),
         "if" => Some(built_in::if_),
+        "assign" => Some(built_in::assign),
+        "def" => Some(built_in::def),
         _ => None,
     }
 }
 
 #[allow(dead_code)]
-pub(crate) fn evaluate(expr: Expr, ctx: &Context) -> anyhow::Result<Expr> {
+pub(crate) fn evaluate(expr: Expr, ctx: &mut Context) -> anyhow::Result<Expr> {
     match expr {
         Expr::List(elms) => match elms.clone().split_first() {
             Some((Expr::Symbol(s), args)) => {
@@ -55,10 +57,11 @@ mod built_in {
     use super::evaluate;
     use super::Context;
     use super::Expr;
+    use anyhow::bail;
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
 
-    pub(crate) fn add(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn add(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         if args.len() != 2 {
             anyhow::bail!("failed to add: invalid number of arguments: {:?}", args);
         }
@@ -71,7 +74,7 @@ mod built_in {
         }
     }
 
-    pub(crate) fn sub(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn sub(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         if args.len() != 2 {
             anyhow::bail!("failed to sub: invalid number of arguments: {:?}", args);
         }
@@ -84,7 +87,7 @@ mod built_in {
         }
     }
 
-    pub(crate) fn mul(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn mul(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         if args.len() != 2 {
             anyhow::bail!("failed to mul: invalid number of arguments: {:?}", args);
         }
@@ -97,7 +100,7 @@ mod built_in {
         }
     }
 
-    pub(crate) fn div(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn div(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         if args.len() != 2 {
             anyhow::bail!("failed to div: invalid number of arguments: {:?}", args);
         }
@@ -110,7 +113,7 @@ mod built_in {
         }
     }
 
-    pub(crate) fn lt(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn lt(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         if args.len() != 2 {
             anyhow::bail!("failed to lt: invalid number of arguments: {:?}", args);
         }
@@ -123,7 +126,7 @@ mod built_in {
         }
     }
 
-    pub(crate) fn eq(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn eq(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         if args.len() != 2 {
             anyhow::bail!("failed to eq: invalid number of arguments: {:?}", args);
         }
@@ -136,7 +139,7 @@ mod built_in {
         }
     }
 
-    pub(crate) fn and(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn and(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         if args.len() != 2 {
             anyhow::bail!("failed to and: invalid number of arguments: {:?}", args);
         }
@@ -148,7 +151,7 @@ mod built_in {
             _ => anyhow::bail!("failed to if: invalid arguments: {:?}", args),
         }
     }
-    pub(crate) fn not(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn not(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         if args.len() != 1 {
             anyhow::bail!("failed to not: invalid number of arguments: {:?}", args);
         }
@@ -160,7 +163,7 @@ mod built_in {
         }
     }
 
-    pub(crate) fn if_(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn if_(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         if args.len() != 3 {
             anyhow::bail!("failed to if: invalid number of arguments: {:?}", args);
         }
@@ -173,11 +176,11 @@ mod built_in {
         }
     }
 
-    pub(crate) fn list(args: Vec<Expr>, _ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn list(args: Vec<Expr>, _ctx: &mut Context) -> anyhow::Result<Expr> {
         Ok(Expr::List(args))
     }
 
-    pub(crate) fn car(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn car(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         if args.len() != 1 {
             anyhow::bail!("failed to car: invalid number of arguments: {:?}", args);
         }
@@ -192,7 +195,7 @@ mod built_in {
         }
     }
 
-    pub(crate) fn cdr(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn cdr(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         if args.len() != 1 {
             anyhow::bail!("failed to car: invalid number of arguments: {:?}", args);
         }
@@ -207,7 +210,7 @@ mod built_in {
         }
     }
 
-    pub(crate) fn call(args: Vec<Expr>, ctx: &Context) -> anyhow::Result<Expr> {
+    pub(crate) fn call(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         match args.split_first() {
             Some((Expr::Symbol(s), args)) => match ctx.resolve(s) {
                 Some(f) => {
@@ -248,12 +251,61 @@ mod built_in {
                             )
                         })
                         .collect::<HashMap<String, Func>>();
-                    let ctx = ctx.with(env);
-                    evaluate(body, &ctx)
+                    let mut ctx = ctx.with(env);
+                    evaluate(body, &mut ctx)
                 }
                 None => anyhow::bail!("failed to call: invalid arguments: {:?}", args),
             },
             _ => anyhow::bail!("failed to call: invalid arguments 22 : {:?}", args),
+        }
+    }
+
+    pub(crate) fn assign(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
+        if args.len() != 2 {
+            anyhow::bail!("failed to assign: invalid number of arguments: {:?}", args);
+        }
+
+        match (&args[0], &args[1]) {
+            (Expr::Symbol(s), e) => {
+                ctx.register(
+                    s,
+                    Func {
+                        args: vec![],
+                        body: e.clone(),
+                    },
+                );
+                Ok(Expr::List(vec![]))
+            }
+            _ => bail!("failed to assign: invalid arguments: {:?}", args),
+        }
+    }
+
+    pub(crate) fn def(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
+        if args.len() != 3 {
+            anyhow::bail!("failed to assign: invalid number of arguments: {:?}", args);
+        }
+
+        match (&args[0], &args[1], &args[2]) {
+            (Expr::Symbol(s), Expr::List(args), e) => {
+                let args = args
+                    .clone()
+                    .into_iter()
+                    .map(|e| match e {
+                        Expr::Symbol(s) => Ok(s),
+                        _ => bail!("failed to assign: invalid arguments: {:?}", args),
+                    })
+                    .collect::<anyhow::Result<Vec<String>>>()?;
+
+                ctx.register(
+                    s,
+                    Func {
+                        args,
+                        body: e.clone(),
+                    },
+                );
+                Ok(Expr::List(vec![]))
+            }
+            _ => bail!("failed to assign: invalid arguments: {:?}", args),
         }
     }
 }
@@ -269,6 +321,39 @@ mod test {
     #[test]
     fn test_evaluate() {
         let mut ctx = Context::new();
+        evaluate(
+            Expr::List(vec![
+                Expr::Symbol("assign".to_string()),
+                Expr::Symbol("A".to_string()),
+                Expr::Number(1.0),
+            ]),
+            &mut ctx,
+        )
+        .unwrap();
+        evaluate(
+            Expr::List(vec![
+                Expr::Symbol("assign".to_string()),
+                Expr::Symbol("B".to_string()),
+                Expr::Number(2.0),
+            ]),
+            &mut ctx,
+        )
+        .unwrap();
+        evaluate(
+            Expr::List(vec![
+                Expr::Symbol("def".to_string()),
+                Expr::Symbol("ThreeTimes".to_string()),
+                Expr::List(vec![Expr::Symbol("A".to_string())]),
+                Expr::List(vec![
+                    Expr::Symbol("*".to_string()),
+                    Expr::Number(3.0),
+                    Expr::Symbol("A".to_string()),
+                ]),
+            ]),
+            &mut ctx,
+        )
+        .unwrap();
+
         assert_eq!(
             Expr::Number(-3.25),
             evaluate(
@@ -285,7 +370,7 @@ mod test {
                         Expr::Number(2.0),
                     ])
                 ]),
-                &ctx
+                &mut ctx
             )
             .unwrap()
         );
@@ -297,7 +382,7 @@ mod test {
                     Expr::Number(1.25),
                     Expr::Number(2.0),
                 ]),
-                &ctx
+                &mut ctx
             )
             .unwrap()
         );
@@ -309,7 +394,7 @@ mod test {
                     Expr::Number(1.25),
                     Expr::Number(1.25),
                 ]),
-                &ctx
+                &mut ctx
             )
             .unwrap()
         );
@@ -317,7 +402,7 @@ mod test {
             Expr::Bool(true),
             evaluate(
                 Expr::List(vec![Expr::Symbol("!".to_string()), Expr::Bool(false),]),
-                &ctx
+                &mut ctx
             )
             .unwrap()
         );
@@ -329,7 +414,7 @@ mod test {
                     Expr::Bool(true),
                     Expr::Bool(true),
                 ]),
-                &ctx
+                &mut ctx
             )
             .unwrap()
         );
@@ -342,29 +427,14 @@ mod test {
                     Expr::Number(1.25),
                     Expr::Number(2.0),
                 ]),
-                &ctx
+                &mut ctx
             )
             .unwrap()
         );
 
-        ctx.register(
-            "A",
-            Func {
-                args: vec![],
-                body: Expr::Number(1.0),
-            },
-        );
-        ctx.register(
-            "B",
-            Func {
-                args: vec![],
-                body: Expr::Number(2.0),
-            },
-        );
-
         assert_eq!(
             Expr::Number(1.0),
-            evaluate(Expr::Symbol("A".to_string()), &ctx).unwrap()
+            evaluate(Expr::Symbol("A".to_string()), &mut ctx).unwrap()
         );
 
         let mut env2 = HashMap::new();
@@ -375,16 +445,16 @@ mod test {
                 body: Expr::Number(3.0),
             },
         );
-        let ctx2 = ctx.with(env2);
+        let mut ctx2 = ctx.with(env2);
         assert_eq!(
             Expr::Number(3.0),
-            evaluate(Expr::Symbol("A".to_string()), &ctx2).unwrap()
+            evaluate(Expr::Symbol("A".to_string()), &mut ctx2).unwrap()
         );
         assert_eq!(
             Expr::Number(2.0),
-            evaluate(Expr::Symbol("B".to_string()), &ctx2).unwrap()
+            evaluate(Expr::Symbol("B".to_string()), &mut ctx2).unwrap()
         );
-        let ctx3 = create_root_context();
+        let mut ctx3 = create_root_context();
         assert_eq!(
             Expr::Bool(true),
             evaluate(
@@ -393,7 +463,7 @@ mod test {
                     Expr::Bool(true),
                     Expr::Bool(true),
                 ]),
-                &ctx3
+                &mut ctx3
             )
             .unwrap()
         );
@@ -405,7 +475,7 @@ mod test {
                     Expr::Bool(false),
                     Expr::Bool(true),
                 ]),
-                &ctx3
+                &mut ctx3
             )
             .unwrap()
         );
@@ -417,7 +487,7 @@ mod test {
                     Expr::Bool(false),
                     Expr::Bool(false),
                 ]),
-                &ctx3
+                &mut ctx3
             )
             .unwrap()
         );
@@ -429,7 +499,7 @@ mod test {
                     Expr::Number(1.0),
                     Expr::Number(1.0),
                 ]),
-                &ctx3
+                &mut ctx3
             )
             .unwrap()
         );
@@ -442,7 +512,7 @@ mod test {
                     Expr::Number(1.0),
                     Expr::Number(2.0),
                 ]),
-                &ctx3
+                &mut ctx3
             )
             .unwrap()
         );
@@ -453,7 +523,7 @@ mod test {
                     Expr::Symbol("car".to_string()),
                     Expr::List(vec![Expr::Number(1.0), Expr::Number(2.0)]),
                 ]),
-                &ctx3
+                &mut ctx3
             )
             .unwrap()
         );
@@ -464,7 +534,18 @@ mod test {
                     Expr::Symbol("cdr".to_string()),
                     Expr::List(vec![Expr::Number(1.0), Expr::Number(2.0)]),
                 ]),
-                &ctx3
+                &mut ctx3
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            Expr::Number(6.0),
+            evaluate(
+                Expr::List(vec![
+                    Expr::Symbol("ThreeTimes".to_string()),
+                    Expr::Number(2.0),
+                ]),
+                &mut ctx
             )
             .unwrap()
         );
