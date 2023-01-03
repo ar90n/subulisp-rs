@@ -312,9 +312,7 @@ mod built_in {
 
 #[cfg(test)]
 mod test {
-    use std::hash::Hash;
-
-    use super::super::context::{create_root_context, Context, Func};
+    use super::super::context::{Context, Func};
     use super::*;
     use std::collections::HashMap;
 
@@ -454,7 +452,6 @@ mod test {
             Expr::Number(2.0),
             evaluate(Expr::Symbol("B".to_string()), &mut ctx2).unwrap()
         );
-        let mut ctx3 = create_root_context();
         assert_eq!(
             Expr::Bool(true),
             evaluate(
@@ -463,7 +460,7 @@ mod test {
                     Expr::Bool(true),
                     Expr::Bool(true),
                 ]),
-                &mut ctx3
+                &mut ctx
             )
             .unwrap()
         );
@@ -475,7 +472,7 @@ mod test {
                     Expr::Bool(false),
                     Expr::Bool(true),
                 ]),
-                &mut ctx3
+                &mut ctx
             )
             .unwrap()
         );
@@ -487,7 +484,7 @@ mod test {
                     Expr::Bool(false),
                     Expr::Bool(false),
                 ]),
-                &mut ctx3
+                &mut ctx
             )
             .unwrap()
         );
@@ -499,7 +496,7 @@ mod test {
                     Expr::Number(1.0),
                     Expr::Number(1.0),
                 ]),
-                &mut ctx3
+                &mut ctx
             )
             .unwrap()
         );
@@ -512,7 +509,7 @@ mod test {
                     Expr::Number(1.0),
                     Expr::Number(2.0),
                 ]),
-                &mut ctx3
+                &mut ctx
             )
             .unwrap()
         );
@@ -523,7 +520,7 @@ mod test {
                     Expr::Symbol("car".to_string()),
                     Expr::List(vec![Expr::Number(1.0), Expr::Number(2.0)]),
                 ]),
-                &mut ctx3
+                &mut ctx
             )
             .unwrap()
         );
@@ -534,7 +531,7 @@ mod test {
                     Expr::Symbol("cdr".to_string()),
                     Expr::List(vec![Expr::Number(1.0), Expr::Number(2.0)]),
                 ]),
-                &mut ctx3
+                &mut ctx
             )
             .unwrap()
         );

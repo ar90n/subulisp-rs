@@ -1,4 +1,5 @@
 use super::expr::Expr;
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -18,6 +19,13 @@ impl<'a> Context<'a> {
     pub fn new() -> Self {
         Self {
             env: HashMap::new(),
+            parent: Some(&ROOT_CONTEXT),
+        }
+    }
+
+    fn new_root() -> Self {
+        Self {
+            env: create_root_env(),
             parent: None,
         }
     }
@@ -42,111 +50,125 @@ impl<'a> Context<'a> {
     }
 }
 
-#[allow(dead_code)]
-pub(crate) fn create_root_context() -> Context<'static> {
-    let mut context = Context::new();
-    context.register(
-        "|",
-        Func {
-            args: vec!["lhs".to_string(), "rhs".to_string()],
-            body: Expr::List(vec![
-                Expr::Symbol("!".to_string()),
-                Expr::List(vec![
-                    Expr::Symbol("&".to_string()),
+fn create_root_env() -> HashMap<String, Func> {
+    [
+        (
+            "|".to_string(),
+            Func {
+                args: vec!["lhs".to_string(), "rhs".to_string()],
+                body: Expr::List(vec![
+                    Expr::Symbol("!".to_string()),
                     Expr::List(vec![
-                        Expr::Symbol("!".to_string()),
-                        Expr::Symbol("lhs".to_string()),
+                        Expr::Symbol("&".to_string()),
+                        Expr::List(vec![
+                            Expr::Symbol("!".to_string()),
+                            Expr::Symbol("lhs".to_string()),
+                        ]),
+                        Expr::List(vec![
+                            Expr::Symbol("!".to_string()),
+                            Expr::Symbol("rhs".to_string()),
+                        ]),
                     ]),
+                ]),
+            },
+        ),
+        (
+            "!=".to_string(),
+            Func {
+                args: vec!["lhs".to_string(), "rhs".to_string()],
+                body: Expr::List(vec![
+                    Expr::Symbol("!".to_string()),
                     Expr::List(vec![
-                        Expr::Symbol("!".to_string()),
+                        Expr::Symbol("=".to_string()),
+                        Expr::Symbol("lhs".to_string()),
                         Expr::Symbol("rhs".to_string()),
                     ]),
                 ]),
-            ]),
-        },
-    );
-    context.register(
-        "!=",
-        Func {
-            args: vec!["lhs".to_string(), "rhs".to_string()],
-            body: Expr::List(vec![
-                Expr::Symbol("!".to_string()),
-                Expr::List(vec![
-                    Expr::Symbol("=".to_string()),
-                    Expr::Symbol("lhs".to_string()),
-                    Expr::Symbol("rhs".to_string()),
+            },
+        ),
+        (
+            "<=".to_string(),
+            Func {
+                args: vec!["lhs".to_string(), "rhs".to_string()],
+                body: Expr::List(vec![
+                    Expr::Symbol("|".to_string()),
+                    Expr::List(vec![
+                        Expr::Symbol("<".to_string()),
+                        Expr::Symbol("lhs".to_string()),
+                        Expr::Symbol("rhs".to_string()),
+                    ]),
+                    Expr::List(vec![
+                        Expr::Symbol("=".to_string()),
+                        Expr::Symbol("lhs".to_string()),
+                        Expr::Symbol("rhs".to_string()),
+                    ]),
                 ]),
-            ]),
-        },
-    );
-    context.register(
-        "<=",
-        Func {
-            args: vec!["lhs".to_string(), "rhs".to_string()],
-            body: Expr::List(vec![
-                Expr::Symbol("|".to_string()),
-                Expr::List(vec![
-                    Expr::Symbol("<".to_string()),
-                    Expr::Symbol("lhs".to_string()),
-                    Expr::Symbol("rhs".to_string()),
+            },
+        ),
+        (
+            ">".to_string(),
+            Func {
+                args: vec!["lhs".to_string(), "rhs".to_string()],
+                body: Expr::List(vec![
+                    Expr::Symbol("!".to_string()),
+                    Expr::List(vec![
+                        Expr::Symbol("<=".to_string()),
+                        Expr::Symbol("lhs".to_string()),
+                        Expr::Symbol("rhs".to_string()),
+                    ]),
                 ]),
-                Expr::List(vec![
-                    Expr::Symbol("=".to_string()),
-                    Expr::Symbol("lhs".to_string()),
-                    Expr::Symbol("rhs".to_string()),
+            },
+        ),
+        (
+            ">=".to_string(),
+            Func {
+                args: vec!["lhs".to_string(), "rhs".to_string()],
+                body: Expr::List(vec![
+                    Expr::Symbol("!".to_string()),
+                    Expr::List(vec![
+                        Expr::Symbol("<".to_string()),
+                        Expr::Symbol("lhs".to_string()),
+                        Expr::Symbol("rhs".to_string()),
+                    ]),
                 ]),
-            ]),
-        },
-    );
-    context.register(
-        ">",
-        Func {
-            args: vec!["lhs".to_string(), "rhs".to_string()],
-            body: Expr::List(vec![
-                Expr::Symbol("!".to_string()),
-                Expr::List(vec![
-                    Expr::Symbol("<=".to_string()),
-                    Expr::Symbol("lhs".to_string()),
-                    Expr::Symbol("rhs".to_string()),
+            },
+        ),
+        (
+            "incf".to_string(),
+            Func {
+                args: vec!["v".to_string()],
+                body: Expr::List(vec![
+                    Expr::Symbol("+".to_string()),
+                    Expr::Symbol("v".to_string()),
+                    Expr::Number(1.0),
                 ]),
-            ]),
-        },
-    );
-    context.register(
-        ">=",
-        Func {
-            args: vec!["lhs".to_string(), "rhs".to_string()],
-            body: Expr::List(vec![
-                Expr::Symbol("!".to_string()),
-                Expr::List(vec![
-                    Expr::Symbol("<".to_string()),
-                    Expr::Symbol("lhs".to_string()),
-                    Expr::Symbol("rhs".to_string()),
+            },
+        ),
+        (
+            "decf".to_string(),
+            Func {
+                args: vec!["v".to_string()],
+                body: Expr::List(vec![
+                    Expr::Symbol("-".to_string()),
+                    Expr::Symbol("v".to_string()),
+                    Expr::Number(1.0),
                 ]),
-            ]),
-        },
-    );
-    context.register(
-        "incf",
-        Func {
-            args: vec!["v".to_string()],
-            body: Expr::List(vec![
-                Expr::Symbol("+".to_string()),
-                Expr::Symbol("v".to_string()),
-                Expr::Number(1.0),
-            ]),
-        },
-    );
-    context.register(
-        "decf",
-        Func {
-            args: vec!["v".to_string()],
-            body: Expr::List(vec![
-                Expr::Symbol("-".to_string()),
-                Expr::Symbol("v".to_string()),
-                Expr::Number(1.0),
-            ]),
-        },
-    );
-    context
+            },
+        ),
+        (
+            "decf".to_string(),
+            Func {
+                args: vec!["v".to_string()],
+                body: Expr::List(vec![
+                    Expr::Symbol("-".to_string()),
+                    Expr::Symbol("v".to_string()),
+                    Expr::Number(1.0),
+                ]),
+            },
+        ),
+    ]
+    .into_iter()
+    .collect()
 }
+
+static ROOT_CONTEXT: Lazy<Context<'static>> = Lazy::new(Context::new_root);
