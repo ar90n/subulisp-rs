@@ -1,5 +1,4 @@
-use super::context::Context;
-use super::context::Func;
+use super::context::{Context, Func};
 use super::expr::Expr;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
@@ -37,6 +36,7 @@ pub(crate) fn call(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
         )),
     }
 }
+
 #[allow(dead_code)]
 pub(crate) fn evaluate(expr: Expr, ctx: &mut Context) -> anyhow::Result<Expr> {
     match expr {
@@ -72,9 +72,7 @@ pub(crate) fn evaluate(expr: Expr, ctx: &mut Context) -> anyhow::Result<Expr> {
 
 #[cfg(test)]
 mod test {
-    use super::super::context::{Context, Func};
     use super::*;
-    use std::collections::HashMap;
 
     #[test]
     fn test_evaluate() {

@@ -40,7 +40,7 @@ fn tokenize_impl(s: &str) -> anyhow::Result<Token> {
 }
 
 #[allow(dead_code)]
-fn tokenize(code: &str) -> anyhow::Result<Vec<Token>> {
+pub(crate) fn tokenize(code: &str) -> anyhow::Result<Vec<Token>> {
     code.replace('(', " ( ")
         .replace(')', " ) ")
         .split_whitespace()

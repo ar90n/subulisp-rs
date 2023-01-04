@@ -45,19 +45,24 @@ pub(crate) struct Context<'a> {
     parent: Option<&'a Context<'a>>,
 }
 
-impl<'a> Context<'a> {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self {
-            env: HashMap::new(),
-            parent: Some(&ROOT_CONTEXT),
-        }
+impl Default for Context<'_> {
+    fn default() -> Self {
+        Self::new()
     }
+}
 
+impl<'a> Context<'a> {
     fn new_root() -> Self {
         Self {
             env: create_root_env(),
             parent: None,
+        }
+    }
+
+    pub fn new() -> Self {
+        Self {
+            env: HashMap::new(),
+            parent: Some(&ROOT_CONTEXT),
         }
     }
 

@@ -71,7 +71,7 @@ fn parse_impl(tokens: &[Token]) -> anyhow::Result<(Expr, &[Token])> {
 }
 
 #[allow(dead_code)]
-fn parse(tokens: &[Token]) -> anyhow::Result<Expr> {
+pub(crate) fn parse(tokens: &[Token]) -> anyhow::Result<Expr> {
     let (expr, rest) = parse_impl(tokens)?;
     if !rest.is_empty() {
         return Err(anyhow::anyhow!(
