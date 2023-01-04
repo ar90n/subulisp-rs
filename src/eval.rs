@@ -40,7 +40,7 @@ pub(crate) fn call(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
 #[allow(dead_code)]
 pub(crate) fn evaluate(expr: Expr, ctx: &mut Context) -> anyhow::Result<Expr> {
     match expr {
-        Expr::List(elms) => match elms.clone().split_first() {
+        Expr::List(elms) => match elms.split_first() {
             Some((Expr::Symbol(s), args)) => {
                 if let Some(f) = super::built_in::BUILT_IN_FUNCS.get(s) {
                     let vs = args.to_vec();
@@ -54,7 +54,11 @@ pub(crate) fn evaluate(expr: Expr, ctx: &mut Context) -> anyhow::Result<Expr> {
                     ))
                 }
             }
-            _ => Ok(Expr::List(elms)),
+            _ => Ok(Expr::List(
+                elms.into_iter()
+                    .map(|e| evaluate(e, ctx))
+                    .collect::<anyhow::Result<Vec<Expr>>>()?,
+            )),
         },
         Expr::Symbol(s) => {
             if let Some(_func) = ctx.resolve(&s) {
@@ -343,6 +347,23 @@ mod test {
             Expr::Number(377.0),
             evaluate(
                 Expr::List(vec![Expr::Symbol("fibo".to_string()), Expr::Number(13.0),]),
+                &mut ctx
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_empty_list() {
+        let mut ctx = Context::new();
+        assert_eq!(
+            Expr::List(vec![]),
+            evaluate(
+                Expr::List(vec![Expr::List(vec![
+                    Expr::Symbol("+".to_string()),
+                    Expr::Number(1.25),
+                    Expr::Number(2.0),
+                ])]),
                 &mut ctx
             )
             .unwrap()
