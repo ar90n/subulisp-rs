@@ -542,4 +542,53 @@ mod test {
             .unwrap()
         );
     }
+    #[test]
+    fn test_fibo() {
+        let mut ctx = Context::new();
+        evaluate(
+            Expr::List(vec![
+                Expr::Symbol("def".to_string()),
+                Expr::Symbol("fibo".to_string()),
+                Expr::List(vec![Expr::Symbol("n".to_string())]),
+                Expr::List(vec![
+                    Expr::Symbol("if".to_string()),
+                    Expr::List(vec![
+                        Expr::Symbol("<=".to_string()),
+                        Expr::Symbol("n".to_string()),
+                        Expr::Number(1.0),
+                    ]),
+                    Expr::Number(1.0),
+                    Expr::List(vec![
+                        Expr::Symbol("+".to_string()),
+                        Expr::List(vec![
+                            Expr::Symbol("fibo".to_string()),
+                            Expr::List(vec![
+                                Expr::Symbol("-".to_string()),
+                                Expr::Symbol("n".to_string()),
+                                Expr::Number(1.0),
+                            ]),
+                        ]),
+                        Expr::List(vec![
+                            Expr::Symbol("fibo".to_string()),
+                            Expr::List(vec![
+                                Expr::Symbol("-".to_string()),
+                                Expr::Symbol("n".to_string()),
+                                Expr::Number(2.0),
+                            ]),
+                        ]),
+                    ]),
+                ]),
+            ]),
+            &mut ctx,
+        )
+        .unwrap();
+        assert_eq!(
+            Expr::Number(377.0),
+            evaluate(
+                Expr::List(vec![Expr::Symbol("fibo".to_string()), Expr::Number(13.0),]),
+                &mut ctx
+            )
+            .unwrap()
+        );
+    }
 }
