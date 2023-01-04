@@ -4,8 +4,39 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub(crate) struct Func {
-    pub args: Vec<String>,
-    pub body: Expr,
+    args: Vec<String>,
+    body: Expr,
+}
+
+impl Func {
+    pub fn new(args: Vec<String>, body: Expr) -> Self {
+        Self { args, body }
+    }
+
+    pub fn remap_arg_symbol(&self, suffix: &str) -> (Vec<String>, Expr) {
+        fn remap_body(e: &Expr, args: &Vec<String>, suffix: &str) -> Expr {
+            match e {
+                Expr::Symbol(s) => {
+                    if args.contains(s) {
+                        Expr::Symbol(format!("{}_{}", s, suffix))
+                    } else {
+                        Expr::Symbol(s.clone())
+                    }
+                }
+                Expr::List(es) => {
+                    Expr::List(es.iter().map(|e| remap_body(e, args, suffix)).collect())
+                }
+                _ => e.clone(),
+            }
+        }
+        let body = remap_body(&self.body, &self.args, suffix);
+        let args = self
+            .args
+            .iter()
+            .map(|s| format!("{}_{}", s, suffix))
+            .collect();
+        (args, body)
+    }
 }
 
 #[derive(Debug)]

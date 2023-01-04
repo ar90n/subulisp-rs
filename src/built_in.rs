@@ -133,7 +133,7 @@ pub(crate) fn assign(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr>
 
     match args {
         [Expr::Symbol(name), body] => {
-            ctx.register(&name, Func { args: vec![], body });
+            ctx.register(&name, Func::new(vec![], body));
             Ok(Expr::List(vec![]))
         }
         _ => Err(anyhow::anyhow!(
@@ -160,7 +160,7 @@ pub(crate) fn def(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
                 })
                 .collect::<anyhow::Result<Vec<String>>>()?;
 
-            ctx.register(&s, Func { args, body });
+            ctx.register(&s, Func::new(args, body));
             Ok(Expr::List(vec![]))
         }
         _ => Err(anyhow::anyhow!(

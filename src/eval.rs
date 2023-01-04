@@ -5,50 +5,23 @@ use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 
+fn create_suffix() -> String {
+    let mut rng = thread_rng();
+    (0..10)
+        .map(|_| rng.sample(Alphanumeric) as char)
+        .collect::<String>()
+}
+
 pub(crate) fn call(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-    fn create_suffix() -> String {
-        let mut rng = thread_rng();
-        (0..10)
-            .map(|_| rng.sample(Alphanumeric) as char)
-            .collect::<String>()
-    }
-
-    fn create_remapped_body(f: &Func, suffix: &str) -> Expr {
-        fn remap_body(e: &Expr, args: &Vec<String>, suffix: &str) -> Expr {
-            match e {
-                Expr::Symbol(s) => {
-                    if args.contains(s) {
-                        Expr::Symbol(format!("{}_{}", s, suffix))
-                    } else {
-                        Expr::Symbol(s.clone())
-                    }
-                }
-                Expr::List(es) => {
-                    Expr::List(es.iter().map(|e| remap_body(e, args, suffix)).collect())
-                }
-                _ => e.clone(),
-            }
-        }
-        remap_body(&f.body, &f.args, suffix)
-    }
-
     match args.split_first() {
         Some((Expr::Symbol(s), args)) => match ctx.resolve(s) {
             Some(f) => {
                 let suffix = create_suffix();
-                let body = create_remapped_body(f, &suffix);
-                let env = args
+                let (func_args, body) = f.remap_arg_symbol(&suffix);
+                let env = func_args
                     .iter()
-                    .zip(f.args.iter())
-                    .map(|(e, n)| {
-                        (
-                            format!("{}_{}", n, suffix),
-                            Func {
-                                args: vec![],
-                                body: e.clone(),
-                            },
-                        )
-                    })
+                    .zip(args.iter())
+                    .map(|(n, e)| (n.to_string(), Func::new(vec![], e.clone())))
                     .collect::<HashMap<String, Func>>();
                 let mut ctx = ctx.with(env);
                 evaluate(body, &mut ctx)
@@ -223,13 +196,7 @@ mod test {
         );
 
         let mut env2 = HashMap::new();
-        env2.insert(
-            "A".to_string(),
-            Func {
-                args: vec![],
-                body: Expr::Number(3.0),
-            },
-        );
+        env2.insert("A".to_string(), Func::new(vec![], Expr::Number(3.0)));
         let mut ctx2 = ctx.with(env2);
         assert_eq!(
             Expr::Number(3.0),
