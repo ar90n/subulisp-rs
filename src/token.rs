@@ -7,44 +7,44 @@ pub(crate) enum Token {
     Symbol(String),
 }
 
+fn tokenize_paren(s: &str) -> anyhow::Result<Token> {
+    match s {
+        "(" => Ok(Token::LeftParen),
+        ")" => Ok(Token::RightParen),
+        _ => Err(anyhow::anyhow!("failed to parse token as paren")),
+    }
+}
+
+fn tokenize_number(s: &str) -> anyhow::Result<Token> {
+    s.parse::<f64>()
+        .map(Token::Number)
+        .or(Err(anyhow::anyhow!("failed to parse token as number")))
+}
+
+fn tokenize_bool(s: &str) -> anyhow::Result<Token> {
+    s.parse::<bool>()
+        .map(Token::Bool)
+        .or(Err(anyhow::anyhow!("failed to parse token as bool")))
+}
+
+fn tokenize_symbol(s: &str) -> anyhow::Result<Token> {
+    Ok(Token::Symbol(s.to_string()))
+}
+
+fn tokenize_impl(s: &str) -> anyhow::Result<Token> {
+    tokenize_paren(s)
+        .or_else(|_| tokenize_number(s))
+        .or_else(|_| tokenize_bool(s))
+        .or_else(|_| tokenize_symbol(s))
+        .or(Err(anyhow::anyhow!("failed to parse token: {}", s)))
+}
+
 #[allow(dead_code)]
 fn tokenize(code: &str) -> anyhow::Result<Vec<Token>> {
-    fn parse_paren(s: &str) -> anyhow::Result<Token> {
-        match s {
-            "(" => Ok(Token::LeftParen),
-            ")" => Ok(Token::RightParen),
-            _ => Err(anyhow::anyhow!("failed to parse token as paren")),
-        }
-    }
-
-    fn parse_number(s: &str) -> anyhow::Result<Token> {
-        s.parse::<f64>()
-            .map(Token::Number)
-            .or(Err(anyhow::anyhow!("failed to parse token as number")))
-    }
-
-    fn parse_bool(s: &str) -> anyhow::Result<Token> {
-        s.parse::<bool>()
-            .map(Token::Bool)
-            .or(Err(anyhow::anyhow!("failed to parse token as bool")))
-    }
-
-    fn parse_symbol(s: &str) -> anyhow::Result<Token> {
-        Ok(Token::Symbol(s.to_string()))
-    }
-
-    fn parse(s: &str) -> anyhow::Result<Token> {
-        parse_paren(s)
-            .or_else(|_| parse_number(s))
-            .or_else(|_| parse_bool(s))
-            .or_else(|_| parse_symbol(s))
-            .or(Err(anyhow::anyhow!("failed to parse token: {}", s)))
-    }
-
     code.replace('(', " ( ")
         .replace(')', " ) ")
         .split_whitespace()
-        .map(parse)
+        .map(tokenize_impl)
         .collect()
 }
 

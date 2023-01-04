@@ -34,7 +34,10 @@ pub(crate) fn evaluate(expr: Expr, ctx: &mut Context) -> anyhow::Result<Expr> {
                 } else if let Some(_expr) = ctx.resolve(s) {
                     built_in::call(elms, ctx)
                 } else {
-                    anyhow::bail!("failed to evaluate list: unknown symbol: {}", s)
+                    Err(anyhow::anyhow!(
+                        "failed to evaluate list: unknown symbol: {}",
+                        s
+                    ))
                 }
             }
             _ => Ok(Expr::List(elms)),
@@ -43,7 +46,10 @@ pub(crate) fn evaluate(expr: Expr, ctx: &mut Context) -> anyhow::Result<Expr> {
             if let Some(_func) = ctx.resolve(&s) {
                 built_in::call(vec![Expr::Symbol(s)], ctx)
             } else {
-                anyhow::bail!("failed to evaluate symbol: unknown symbol: {}", s)
+                Err(anyhow::anyhow!(
+                    "failed to evaluate symbol: unknown symbol: {}",
+                    s
+                ))
             }
         }
         _ => Ok(expr),
@@ -57,187 +63,159 @@ mod built_in {
     use super::evaluate;
     use super::Context;
     use super::Expr;
-    use anyhow::bail;
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
 
-    pub(crate) fn add(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 2 {
-            anyhow::bail!("failed to add: invalid number of arguments: {:?}", args);
-        }
+    macro_rules! unary_op {
+        ( $name:ident, $p:pat, $e:expr, $c:expr ) => {
+            pub(crate) fn $name(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
+                if args.len() != 1 {
+                    anyhow::bail!(
+                        "failed to {}: invalid number of arguments: {:?}",
+                        stringify!($name),
+                        args
+                    );
+                }
 
-        let lhs = evaluate(args[0].clone(), ctx)?;
-        let rhs = evaluate(args[1].clone(), ctx)?;
-        match (lhs, rhs) {
-            (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 + n2)),
-            _ => anyhow::bail!("failed to add: invalid arguments: {:?}", args),
-        }
+                let mut args = args;
+                evaluate(args.pop().unwrap(), ctx).and_then(|exp| match exp {
+                    $p if $c => Ok($e),
+                    _ => Err(anyhow::anyhow!(
+                        "failed to {}: invalid arguments: {:?}",
+                        stringify!($name),
+                        args
+                    )),
+                })
+            }
+        };
+        ( $name:ident, $p:pat, $e:expr) => {
+            unary_op!($name, $p, $e, true);
+        };
     }
 
-    pub(crate) fn sub(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 2 {
-            anyhow::bail!("failed to sub: invalid number of arguments: {:?}", args);
-        }
+    macro_rules! binary_op {
+        ( $name:ident, $p:pat, $e:expr, $c:expr ) => {
+            pub(crate) fn $name(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
+                if args.len() != 2 {
+                    anyhow::bail!(
+                        "failed to {}: invalid number of arguments: {:?}",
+                        stringify!($name),
+                        args
+                    );
+                }
 
-        let lhs = evaluate(args[0].clone(), ctx)?;
-        let rhs = evaluate(args[1].clone(), ctx)?;
-        match (lhs, rhs) {
-            (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 - n2)),
-            _ => anyhow::bail!("failed to sub: invalid arguments: {:?}", args),
-        }
+                let mut args = args;
+                let rhs = evaluate(args.pop().unwrap(), ctx)?;
+                let lhs = evaluate(args.pop().unwrap(), ctx)?;
+                match (lhs, rhs) {
+                    $p if $c => Ok($e),
+                    _ => Err(anyhow::anyhow!(
+                        "failed to {}: invalid arguments: {:?}",
+                        stringify!($name),
+                        args
+                    )),
+                }
+            }
+        };
+        ( $name:ident, $p:pat, $e:expr) => {
+            binary_op!($name, $p, $e, true);
+        };
     }
 
-    pub(crate) fn mul(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 2 {
-            anyhow::bail!("failed to mul: invalid number of arguments: {:?}", args);
-        }
+    binary_op!(
+        add,
+        (Expr::Number(lv), Expr::Number(rv)),
+        Expr::Number(lv + rv)
+    );
 
-        let lhs = evaluate(args[0].clone(), ctx)?;
-        let rhs = evaluate(args[1].clone(), ctx)?;
-        match (lhs, rhs) {
-            (Expr::Number(n1), Expr::Number(n2)) => Ok(Expr::Number(n1 * n2)),
-            _ => anyhow::bail!("failed to mul: invalid arguments: {:?}", args),
-        }
-    }
+    binary_op!(
+        sub,
+        (Expr::Number(lv), Expr::Number(rv)),
+        Expr::Number(lv - rv)
+    );
 
-    pub(crate) fn div(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 2 {
-            anyhow::bail!("failed to div: invalid number of arguments: {:?}", args);
-        }
+    binary_op!(
+        mul,
+        (Expr::Number(lv), Expr::Number(rv)),
+        Expr::Number(lv * rv)
+    );
 
-        let lhs = evaluate(args[0].clone(), ctx)?;
-        let rhs = evaluate(args[1].clone(), ctx)?;
-        match (lhs, rhs) {
-            (Expr::Number(lv), Expr::Number(rv)) if rv != 0.0 => Ok(Expr::Number(lv / rv)),
-            _ => anyhow::bail!("failed to div: invalid arguments: {:?}", args),
-        }
-    }
+    binary_op!(
+        div,
+        (Expr::Number(lv), Expr::Number(rv)),
+        Expr::Number(lv / rv),
+        rv != 0.0
+    );
 
-    pub(crate) fn lt(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 2 {
-            anyhow::bail!("failed to lt: invalid number of arguments: {:?}", args);
-        }
+    binary_op!(
+        lt,
+        (Expr::Number(lv), Expr::Number(rv)),
+        Expr::Bool(lv < rv)
+    );
 
-        let lhs = evaluate(args[0].clone(), ctx)?;
-        let rhs = evaluate(args[1].clone(), ctx)?;
-        match (lhs, rhs) {
-            (Expr::Number(lv), Expr::Number(rv)) => Ok(Expr::Bool(lv < rv)),
-            _ => anyhow::bail!("failed to lt: invalid arguments: {:?}", args),
-        }
-    }
+    binary_op!(
+        eq,
+        (Expr::Number(lv), Expr::Number(rv)),
+        Expr::Bool(lv == rv)
+    );
 
-    pub(crate) fn eq(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 2 {
-            anyhow::bail!("failed to eq: invalid number of arguments: {:?}", args);
-        }
+    binary_op!(and, (Expr::Bool(lv), Expr::Bool(rv)), Expr::Bool(lv && rv));
 
-        let lhs = evaluate(args[0].clone(), ctx)?;
-        let rhs = evaluate(args[1].clone(), ctx)?;
-        match (lhs, rhs) {
-            (Expr::Number(lv), Expr::Number(rv)) => Ok(Expr::Bool(lv == rv)),
-            _ => anyhow::bail!("failed to eq: invalid arguments: {:?}", args),
-        }
-    }
-
-    pub(crate) fn and(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 2 {
-            anyhow::bail!("failed to and: invalid number of arguments: {:?}", args);
-        }
-
-        let lhs = evaluate(args[0].clone(), ctx)?;
-        match lhs {
-            Expr::Bool(v) if v => Ok(evaluate(args[1].clone(), ctx)?),
-            Expr::Bool(v) if !v => Ok(Expr::Bool(false)),
-            _ => anyhow::bail!("failed to if: invalid arguments: {:?}", args),
-        }
-    }
-    pub(crate) fn not(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 1 {
-            anyhow::bail!("failed to not: invalid number of arguments: {:?}", args);
-        }
-
-        let exp = evaluate(args[0].clone(), ctx)?;
-        match exp {
-            Expr::Bool(v) => Ok(Expr::Bool(!v)),
-            _ => anyhow::bail!("failed to not: invalid arguments: {:?}", args),
-        }
-    }
-
-    pub(crate) fn if_(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 3 {
-            anyhow::bail!("failed to if: invalid number of arguments: {:?}", args);
-        }
-
-        let cond = evaluate(args[0].clone(), ctx)?;
-        match cond {
-            Expr::Bool(c) if c => Ok(evaluate(args[1].clone(), ctx)?),
-            Expr::Bool(c) if !c => Ok(evaluate(args[2].clone(), ctx)?),
-            _ => anyhow::bail!("failed to if: invalid arguments: {:?}", args),
-        }
-    }
+    unary_op!(not, Expr::Bool(v), Expr::Bool(!v));
 
     pub(crate) fn list(args: Vec<Expr>, _ctx: &mut Context) -> anyhow::Result<Expr> {
         Ok(Expr::List(args))
     }
 
-    pub(crate) fn car(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 1 {
-            anyhow::bail!("failed to car: invalid number of arguments: {:?}", args);
-        }
+    unary_op!(
+        car,
+        Expr::List(es),
+        es.split_first().map(|(e, _)| e.clone()).unwrap(),
+        !es.is_empty()
+    );
 
-        let ret = evaluate(args[0].clone(), ctx)?;
-        match ret {
-            Expr::List(es) => match es.split_first() {
-                Some((e, _)) => Ok(e.clone()),
-                _ => anyhow::bail!("failed to car: invalid number of arguments: {:?}", args),
-            },
-            _ => anyhow::bail!("failed to car: invalid number of arguments: {:?}", args),
-        }
-    }
-
-    pub(crate) fn cdr(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 1 {
-            anyhow::bail!("failed to car: invalid number of arguments: {:?}", args);
-        }
-
-        let ret = evaluate(args[0].clone(), ctx)?;
-        match ret {
-            Expr::List(es) => match es.split_first() {
-                Some((_, rest)) => Ok(Expr::List(rest.to_vec())),
-                _ => anyhow::bail!("failed to cdr: invalid number of arguments: {:?}", args),
-            },
-            _ => anyhow::bail!("failed to cdr: invalid number of arguments: {:?}", args),
-        }
-    }
+    unary_op!(
+        cdr,
+        Expr::List(es),
+        es.split_first()
+            .map(|(_, es)| es.to_vec())
+            .or(Some(vec![]))
+            .map(Expr::List)
+            .unwrap()
+    );
 
     pub(crate) fn call(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
+        fn create_suffix() -> String {
+            let mut rng = thread_rng();
+            (0..10)
+                .map(|_| rng.sample(Alphanumeric) as char)
+                .collect::<String>()
+        }
+
+        fn create_remapped_body(f: &Func, suffix: &str) -> Expr {
+            fn remap_body(e: &Expr, args: &Vec<String>, suffix: &str) -> Expr {
+                match e {
+                    Expr::Symbol(s) => {
+                        if args.contains(s) {
+                            Expr::Symbol(format!("{}_{}", s, suffix))
+                        } else {
+                            Expr::Symbol(s.clone())
+                        }
+                    }
+                    Expr::List(es) => {
+                        Expr::List(es.iter().map(|e| remap_body(e, args, suffix)).collect())
+                    }
+                    _ => e.clone(),
+                }
+            }
+            remap_body(&f.body, &f.args, suffix)
+        }
+
         match args.split_first() {
             Some((Expr::Symbol(s), args)) => match ctx.resolve(s) {
                 Some(f) => {
-                    let mut rng = thread_rng();
-                    let suffix = (0..10)
-                        .map(|_| rng.sample(Alphanumeric) as char)
-                        .collect::<String>();
-
-                    fn remap_symbol(e: Expr, suffix: &str, args: &Vec<String>) -> Expr {
-                        match e {
-                            Expr::Symbol(s) => {
-                                if args.contains(&s) {
-                                    Expr::Symbol(format!("{}_{}", s, suffix))
-                                } else {
-                                    Expr::Symbol(s)
-                                }
-                            }
-                            Expr::List(es) => Expr::List(
-                                es.into_iter()
-                                    .map(|e| remap_symbol(e, suffix, args))
-                                    .collect(),
-                            ),
-                            _ => e,
-                        }
-                    }
-                    let body = remap_symbol(f.body.clone(), &suffix, &f.args);
-
+                    let suffix = create_suffix();
+                    let body = create_remapped_body(f, &suffix);
                     let env = args
                         .iter()
                         .zip(f.args.iter())
@@ -254,58 +232,75 @@ mod built_in {
                     let mut ctx = ctx.with(env);
                     evaluate(body, &mut ctx)
                 }
-                None => anyhow::bail!("failed to call: invalid arguments: {:?}", args),
+                None => Err(anyhow::anyhow!(
+                    "failed to call: invalid arguments: {:?}",
+                    args
+                )),
             },
-            _ => anyhow::bail!("failed to call: invalid arguments 22 : {:?}", args),
+            _ => Err(anyhow::anyhow!(
+                "failed to call: invalid arguments 22 : {:?}",
+                args
+            )),
         }
     }
 
     pub(crate) fn assign(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 2 {
-            anyhow::bail!("failed to assign: invalid number of arguments: {:?}", args);
-        }
+        let args: [Expr; 2] = args.try_into().map_err(|args| {
+            anyhow::anyhow!("failed to assign: invalid number of arguments: {:?}", args)
+        })?;
 
-        match (&args[0], &args[1]) {
-            (Expr::Symbol(s), e) => {
-                ctx.register(
-                    s,
-                    Func {
-                        args: vec![],
-                        body: e.clone(),
-                    },
-                );
+        match args {
+            [Expr::Symbol(name), body] => {
+                ctx.register(&name, Func { args: vec![], body });
                 Ok(Expr::List(vec![]))
             }
-            _ => bail!("failed to assign: invalid arguments: {:?}", args),
+            _ => Err(anyhow::anyhow!(
+                "failed to assign: invalid arguments: {:?}",
+                args
+            )),
         }
     }
 
     pub(crate) fn def(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
-        if args.len() != 3 {
-            anyhow::bail!("failed to assign: invalid number of arguments: {:?}", args);
-        }
-
-        match (&args[0], &args[1], &args[2]) {
-            (Expr::Symbol(s), Expr::List(args), e) => {
+        let args: [Expr; 3] = args.try_into().map_err(|args| {
+            anyhow::anyhow!("failed to assign: invalid number of arguments: {:?}", args)
+        })?;
+        match args {
+            [Expr::Symbol(s), Expr::List(args), body] => {
                 let args = args
-                    .clone()
                     .into_iter()
                     .map(|e| match e {
                         Expr::Symbol(s) => Ok(s),
-                        _ => bail!("failed to assign: invalid arguments: {:?}", args),
+                        _ => Err(anyhow::anyhow!(
+                            "failed to assign: found not symbol expr in args: {:?}",
+                            e
+                        )),
                     })
                     .collect::<anyhow::Result<Vec<String>>>()?;
 
-                ctx.register(
-                    s,
-                    Func {
-                        args,
-                        body: e.clone(),
-                    },
-                );
+                ctx.register(&s, Func { args, body });
                 Ok(Expr::List(vec![]))
             }
-            _ => bail!("failed to assign: invalid arguments: {:?}", args),
+            _ => Err(anyhow::anyhow!(
+                "failed to assign: invalid arguments: {:?}",
+                args
+            )),
+        }
+    }
+
+    pub(crate) fn if_(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
+        let [cond_expr, main_expr, else_expr]: [Expr; 3] = args.try_into().map_err(|args| {
+            anyhow::anyhow!("failed to assign: invalid number of arguments: {:?}", args)
+        })?;
+
+        let cond = evaluate(cond_expr, ctx)?;
+        match cond {
+            Expr::Bool(c) if c => Ok(evaluate(main_expr, ctx)?),
+            Expr::Bool(c) if !c => Ok(evaluate(else_expr, ctx)?),
+            _ => Err(anyhow::anyhow!(
+                "failed to if: invalid condition: {:?}",
+                cond
+            )),
         }
     }
 }

@@ -36,12 +36,10 @@ impl<'a> Context<'a> {
             .or_else(|| self.parent.as_ref().and_then(|p| p.resolve(name)))
     }
 
-    #[allow(dead_code)]
     pub fn register(&mut self, name: &str, func: Func) {
         self.env.insert(name.to_string(), func);
     }
 
-    #[allow(dead_code)]
     pub fn with(&'a self, env: HashMap<String, Func>) -> Context<'a> {
         Self {
             env,
