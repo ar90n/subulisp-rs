@@ -19,10 +19,7 @@ impl From<Expr> for Result {
         match expr {
             Expr::Number(n) => Result::Number(n),
             Expr::List(list) => Result::List(list.into_iter().map(Result::from).collect()),
-            _ => {
-                println!("{:?}", expr);
-                unimplemented!()
-            }
+            _ => unimplemented!(),
         }
     }
 }
@@ -30,14 +27,14 @@ impl From<Expr> for Result {
 impl Display for Result {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Result::Number(n) => write!(f, "{}", n),
+            Result::Number(n) => write!(f, "{n}"),
             Result::List(list) => {
                 write!(f, "(")?;
                 for (i, item) in list.iter().enumerate() {
                     if i != 0 {
                         write!(f, " ")?;
                     }
-                    write!(f, "{}", item)?;
+                    write!(f, "{item}")?;
                 }
                 write!(f, ")")
             }

@@ -19,7 +19,7 @@ impl Func {
     pub fn remap_arg_symbol(&self) -> (Vec<String>, Expr) {
         fn remap_body(e: &Expr, args: &Vec<String>, suffix: &str) -> Expr {
             match e {
-                Expr::Symbol(s) if args.contains(s) => Expr::Symbol(format!("{}_{}", s, suffix)),
+                Expr::Symbol(s) if args.contains(s) => Expr::Symbol(format!("{s}_{suffix}")),
                 Expr::List(es) => {
                     Expr::List(es.iter().map(|e| remap_body(e, args, suffix)).collect())
                 }
@@ -28,11 +28,7 @@ impl Func {
         }
 
         let suffix = create_suffix();
-        let args = self
-            .args
-            .iter()
-            .map(|s| format!("{}_{}", s, suffix))
-            .collect();
+        let args = self.args.iter().map(|s| format!("{s}_{suffix}")).collect();
         let body = remap_body(&self.body, &self.args, &suffix);
         (args, body)
     }

@@ -13,7 +13,7 @@ fn repl(mut env: Lisp) {
         std::io::stdin().read_line(&mut input).unwrap();
         if !input.trim().is_empty() {
             let result = env.evaluate(input).unwrap();
-            println!("{}", result);
+            println!("{result}");
         }
     }
 }
@@ -24,7 +24,7 @@ fn batch(mut env: Lisp) {
 
     let input = input.replace('\n', "");
     let result = env.evaluate(input).unwrap();
-    println!("{}", result);
+    println!("{result}");
 }
 
 fn main() {
