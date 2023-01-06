@@ -6,11 +6,11 @@ use super::eval::evaluate;
 use super::expr::Expr;
 use once_cell::sync::Lazy;
 
-type BuiltInFunc = fn(Vec<Expr>, &mut Context) -> anyhow::Result<Expr>;
+type BuiltInFunc = fn(Vec<Expr>, Context) -> anyhow::Result<(Expr, Context)>;
 
 macro_rules! unary_op {
     ( $name:ident, $p:pat, $e:expr, $c:expr ) => {
-        pub(crate) fn $name(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
+        pub(crate) fn $name(args: Vec<Expr>, ctx: Context) -> anyhow::Result<(Expr, Context)> {
             if args.len() != 1 {
                 anyhow::bail!(
                     "failed to {}: invalid number of arguments: {:?}",
@@ -20,8 +20,8 @@ macro_rules! unary_op {
             }
 
             let mut args = args;
-            evaluate(args.pop().unwrap(), ctx).and_then(|exp| match exp {
-                $p if $c => Ok($e),
+            evaluate(args.pop().unwrap(), ctx).and_then(|(exp, ctx)| match exp {
+                $p if $c => Ok(($e, ctx)),
                 _ => Err(anyhow::anyhow!(
                     "failed to {}: invalid arguments: {:?}",
                     stringify!($name),
@@ -37,7 +37,7 @@ macro_rules! unary_op {
 
 macro_rules! binary_op {
     ( $name:ident, $p:pat, $e:expr, $c:expr ) => {
-        pub(crate) fn $name(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
+        pub(crate) fn $name(args: Vec<Expr>, ctx: Context) -> anyhow::Result<(Expr, Context)> {
             if args.len() != 2 {
                 anyhow::bail!(
                     "failed to {}: invalid number of arguments: {:?}",
@@ -47,10 +47,10 @@ macro_rules! binary_op {
             }
 
             let mut args = args;
-            let rhs = evaluate(args.pop().unwrap(), ctx)?;
-            let lhs = evaluate(args.pop().unwrap(), ctx)?;
+            let (rhs, ctx) = evaluate(args.pop().unwrap(), ctx)?;
+            let (lhs, ctx) = evaluate(args.pop().unwrap(), ctx)?;
             match (lhs, rhs) {
-                $p if $c => Ok($e),
+                $p if $c => Ok(($e, ctx)),
                 _ => Err(anyhow::anyhow!(
                     "failed to {}: invalid arguments: {:?}",
                     stringify!($name),
@@ -95,18 +95,31 @@ binary_op!(
     Expr::Bool(lv < rv)
 );
 
-binary_op!(
-    eq,
-    (Expr::Number(lv), Expr::Number(rv)),
-    Expr::Bool(lv == rv)
-);
-
 binary_op!(and, (Expr::Bool(lv), Expr::Bool(rv)), Expr::Bool(lv && rv));
 
 unary_op!(not, Expr::Bool(v), Expr::Bool(!v));
 
-pub(crate) fn list(args: Vec<Expr>, _ctx: &mut Context) -> anyhow::Result<Expr> {
-    Ok(Expr::List(args))
+pub(crate) fn eq(args: Vec<Expr>, ctx: Context) -> anyhow::Result<(Expr, Context)> {
+    if args.len() != 2 {
+        anyhow::bail!("failed to eq: invalid number of arguments: {:?}", args);
+    }
+
+    let mut args = args;
+    let (rhs, ctx) = evaluate(args.pop().unwrap(), ctx)?;
+    let (lhs, ctx) = evaluate(args.pop().unwrap(), ctx)?;
+    match (lhs, rhs) {
+        (Expr::Number(lv), Expr::Number(rv)) => Ok((Expr::Bool(lv == rv), ctx)),
+        (Expr::Bool(lv), Expr::Bool(rv)) => Ok((Expr::Bool(lv == rv), ctx)),
+        (Expr::List(lv), Expr::List(rv)) => Ok((Expr::Bool(lv == rv), ctx)),
+        _ => Err(anyhow::anyhow!(
+            "failed to eq: invalid arguments: {:?}",
+            args
+        )),
+    }
+}
+
+pub(crate) fn list(args: Vec<Expr>, ctx: Context) -> anyhow::Result<(Expr, Context)> {
+    Ok((Expr::List(args), ctx))
 }
 
 unary_op!(
@@ -126,7 +139,7 @@ unary_op!(
         .unwrap()
 );
 
-pub(crate) fn assign(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
+pub(crate) fn assign(args: Vec<Expr>, mut ctx: Context) -> anyhow::Result<(Expr, Context)> {
     let args: [Expr; 2] = args.try_into().map_err(|args| {
         anyhow::anyhow!("failed to assign: invalid number of arguments: {:?}", args)
     })?;
@@ -134,7 +147,7 @@ pub(crate) fn assign(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr>
     match args {
         [Expr::Symbol(name), body] => {
             ctx.register(&name, Func::new(vec![], body));
-            Ok(Expr::List(vec![]))
+            Ok((Expr::List(vec![]), ctx))
         }
         _ => Err(anyhow::anyhow!(
             "failed to assign: invalid arguments: {:?}",
@@ -143,7 +156,7 @@ pub(crate) fn assign(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr>
     }
 }
 
-pub(crate) fn def(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
+pub(crate) fn def(args: Vec<Expr>, mut ctx: Context) -> anyhow::Result<(Expr, Context)> {
     let args: [Expr; 3] = args.try_into().map_err(|args| {
         anyhow::anyhow!("failed to assign: invalid number of arguments: {:?}", args)
     })?;
@@ -161,7 +174,7 @@ pub(crate) fn def(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
                 .collect::<anyhow::Result<Vec<String>>>()?;
 
             ctx.register(&s, Func::new(args, body));
-            Ok(Expr::List(vec![]))
+            Ok((Expr::List(vec![]), ctx))
         }
         _ => Err(anyhow::anyhow!(
             "failed to assign: invalid arguments: {:?}",
@@ -170,15 +183,15 @@ pub(crate) fn def(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
     }
 }
 
-pub(crate) fn if_(args: Vec<Expr>, ctx: &mut Context) -> anyhow::Result<Expr> {
+pub(crate) fn if_(args: Vec<Expr>, ctx: Context) -> anyhow::Result<(Expr, Context)> {
     let [cond_expr, main_expr, else_expr]: [Expr; 3] = args.try_into().map_err(|args| {
         anyhow::anyhow!("failed to assign: invalid number of arguments: {:?}", args)
     })?;
 
-    let cond = evaluate(cond_expr, ctx)?;
+    let (cond, ctx) = evaluate(cond_expr, ctx)?;
     match cond {
-        Expr::Bool(c) if c => Ok(evaluate(main_expr, ctx)?),
-        Expr::Bool(c) if !c => Ok(evaluate(else_expr, ctx)?),
+        Expr::Bool(c) if c => evaluate(main_expr, ctx),
+        Expr::Bool(c) if !c => evaluate(else_expr, ctx),
         _ => Err(anyhow::anyhow!(
             "failed to if: invalid condition: {:?}",
             cond

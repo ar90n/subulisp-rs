@@ -22,7 +22,7 @@ fn batch(mut env: Lisp) {
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input).unwrap();
 
-    let input = format!("({})", input.replace('\n', ""));
+    let input = input.replace('\n', "");
     let result = env.evaluate(input).unwrap();
     println!("{}", result);
 }

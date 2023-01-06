@@ -2,10 +2,13 @@ use super::expr::Expr;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
+
 #[derive(Debug)]
 pub(crate) struct Func {
-    args: Vec<String>,
-    body: Expr,
+    pub args: Vec<String>,
+    pub body: Expr,
 }
 
 impl Func {
@@ -13,78 +16,75 @@ impl Func {
         Self { args, body }
     }
 
-    pub fn remap_arg_symbol(&self, suffix: &str) -> (Vec<String>, Expr) {
+    pub fn remap_arg_symbol(&self) -> (Vec<String>, Expr) {
         fn remap_body(e: &Expr, args: &Vec<String>, suffix: &str) -> Expr {
             match e {
-                Expr::Symbol(s) => {
-                    if args.contains(s) {
-                        Expr::Symbol(format!("{}_{}", s, suffix))
-                    } else {
-                        Expr::Symbol(s.clone())
-                    }
-                }
+                Expr::Symbol(s) if args.contains(s) => Expr::Symbol(format!("{}_{}", s, suffix)),
                 Expr::List(es) => {
                     Expr::List(es.iter().map(|e| remap_body(e, args, suffix)).collect())
                 }
                 _ => e.clone(),
             }
         }
-        let body = remap_body(&self.body, &self.args, suffix);
+
+        let suffix = create_suffix();
         let args = self
             .args
             .iter()
             .map(|s| format!("{}_{}", s, suffix))
             .collect();
+        let body = remap_body(&self.body, &self.args, &suffix);
         (args, body)
     }
 }
 
 #[derive(Debug)]
-pub(crate) struct Context<'a> {
+pub(crate) struct Context {
     env: HashMap<String, Func>,
-    parent: Option<&'a Context<'a>>,
+    parent: Option<Box<Context>>,
 }
 
-impl Default for Context<'_> {
+impl Default for Context {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> Context<'a> {
-    fn new_root() -> Self {
+impl Context {
+    pub fn new() -> Self {
         Self {
-            env: create_root_env(),
+            env: HashMap::new(),
             parent: None,
         }
     }
 
-    pub fn new() -> Self {
-        Self {
-            env: HashMap::new(),
-            parent: Some(&ROOT_CONTEXT),
-        }
-    }
-
     pub fn resolve(&self, name: &str) -> Option<&Func> {
-        self.env
-            .get(name)
-            .or_else(|| self.parent.as_ref().and_then(|p| p.resolve(name)))
+        self.env.get(name).or_else(|| match self.parent {
+            Some(ref p) => p.resolve(name),
+            None => ROOT_ENV.get(name),
+        })
     }
 
     pub fn register(&mut self, name: &str, func: Func) {
         self.env.insert(name.to_string(), func);
     }
 
-    pub fn with(&'a self, env: HashMap<String, Func>) -> Context<'a> {
+    pub fn with(self, env: HashMap<String, Func>) -> Context {
         Self {
             env,
-            parent: Some(self),
+            parent: Some(Box::new(self)),
         }
     }
 }
 
-fn create_root_env() -> HashMap<String, Func> {
+fn create_suffix() -> String {
+    let mut rng = thread_rng();
+    (0..10)
+        .map(|_| rng.sample(Alphanumeric) as char)
+        .collect::<String>()
+}
+
+static ROOT_ENV: Lazy<HashMap<String, Func>> = Lazy::new(|| {
     [
         (
             "|".to_string(),
@@ -96,11 +96,11 @@ fn create_root_env() -> HashMap<String, Func> {
                         Expr::Symbol("&".to_string()),
                         Expr::List(vec![
                             Expr::Symbol("!".to_string()),
-                            Expr::Symbol("lhs".to_string()),
+                            Expr::List(vec![Expr::Symbol("lhs".to_string())]),
                         ]),
                         Expr::List(vec![
                             Expr::Symbol("!".to_string()),
-                            Expr::Symbol("rhs".to_string()),
+                            Expr::List(vec![Expr::Symbol("rhs".to_string())]),
                         ]),
                     ]),
                 ]),
@@ -114,8 +114,8 @@ fn create_root_env() -> HashMap<String, Func> {
                     Expr::Symbol("!".to_string()),
                     Expr::List(vec![
                         Expr::Symbol("=".to_string()),
-                        Expr::Symbol("lhs".to_string()),
-                        Expr::Symbol("rhs".to_string()),
+                        Expr::List(vec![Expr::Symbol("lhs".to_string())]),
+                        Expr::List(vec![Expr::Symbol("rhs".to_string())]),
                     ]),
                 ]),
             },
@@ -128,13 +128,13 @@ fn create_root_env() -> HashMap<String, Func> {
                     Expr::Symbol("|".to_string()),
                     Expr::List(vec![
                         Expr::Symbol("<".to_string()),
-                        Expr::Symbol("lhs".to_string()),
-                        Expr::Symbol("rhs".to_string()),
+                        Expr::List(vec![Expr::Symbol("lhs".to_string())]),
+                        Expr::List(vec![Expr::Symbol("rhs".to_string())]),
                     ]),
                     Expr::List(vec![
                         Expr::Symbol("=".to_string()),
-                        Expr::Symbol("lhs".to_string()),
-                        Expr::Symbol("rhs".to_string()),
+                        Expr::List(vec![Expr::Symbol("lhs".to_string())]),
+                        Expr::List(vec![Expr::Symbol("rhs".to_string())]),
                     ]),
                 ]),
             },
@@ -147,8 +147,8 @@ fn create_root_env() -> HashMap<String, Func> {
                     Expr::Symbol("!".to_string()),
                     Expr::List(vec![
                         Expr::Symbol("<=".to_string()),
-                        Expr::Symbol("lhs".to_string()),
-                        Expr::Symbol("rhs".to_string()),
+                        Expr::List(vec![Expr::Symbol("lhs".to_string())]),
+                        Expr::List(vec![Expr::Symbol("rhs".to_string())]),
                     ]),
                 ]),
             },
@@ -161,8 +161,8 @@ fn create_root_env() -> HashMap<String, Func> {
                     Expr::Symbol("!".to_string()),
                     Expr::List(vec![
                         Expr::Symbol("<".to_string()),
-                        Expr::Symbol("lhs".to_string()),
-                        Expr::Symbol("rhs".to_string()),
+                        Expr::List(vec![Expr::Symbol("lhs".to_string())]),
+                        Expr::List(vec![Expr::Symbol("rhs".to_string())]),
                     ]),
                 ]),
             },
@@ -173,7 +173,7 @@ fn create_root_env() -> HashMap<String, Func> {
                 args: vec!["v".to_string()],
                 body: Expr::List(vec![
                     Expr::Symbol("+".to_string()),
-                    Expr::Symbol("v".to_string()),
+                    Expr::List(vec![Expr::Symbol("v".to_string())]),
                     Expr::Number(1.0),
                 ]),
             },
@@ -184,25 +184,43 @@ fn create_root_env() -> HashMap<String, Func> {
                 args: vec!["v".to_string()],
                 body: Expr::List(vec![
                     Expr::Symbol("-".to_string()),
-                    Expr::Symbol("v".to_string()),
+                    Expr::List(vec![Expr::Symbol("v".to_string())]),
                     Expr::Number(1.0),
                 ]),
             },
         ),
         (
-            "decf".to_string(),
+            "fold".to_string(),
             Func {
-                args: vec!["v".to_string()],
+                args: vec!["f".to_string(), "init".to_string(), "args".to_string()],
                 body: Expr::List(vec![
-                    Expr::Symbol("-".to_string()),
-                    Expr::Symbol("v".to_string()),
-                    Expr::Number(1.0),
+                    Expr::Symbol("if".to_string()),
+                    Expr::List(vec![
+                        Expr::Symbol("=".to_string()),
+                        Expr::List(vec![Expr::Symbol("args".to_string())]),
+                        Expr::List(vec![]),
+                    ]),
+                    Expr::List(vec![Expr::Symbol("init".to_string())]),
+                    Expr::List(vec![
+                        Expr::Symbol("fold".to_string()),
+                        Expr::List(vec![Expr::Symbol("f".to_string())]),
+                        Expr::List(vec![
+                            Expr::List(vec![Expr::Symbol("f".to_string())]),
+                            Expr::List(vec![Expr::Symbol("init".to_string())]),
+                            Expr::List(vec![
+                                Expr::Symbol("car".to_string()),
+                                Expr::List(vec![Expr::Symbol("args".to_string())]),
+                            ]),
+                        ]),
+                        Expr::List(vec![
+                            Expr::Symbol("cdr".to_string()),
+                            Expr::List(vec![Expr::Symbol("args".to_string())]),
+                        ]),
+                    ]),
                 ]),
             },
         ),
     ]
     .into_iter()
     .collect()
-}
-
-static ROOT_CONTEXT: Lazy<Context<'static>> = Lazy::new(Context::new_root);
+});

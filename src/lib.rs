@@ -19,7 +19,10 @@ impl From<Expr> for Result {
         match expr {
             Expr::Number(n) => Result::Number(n),
             Expr::List(list) => Result::List(list.into_iter().map(Result::from).collect()),
-            _ => unimplemented!(),
+            _ => {
+                println!("{:?}", expr);
+                unimplemented!()
+            }
         }
     }
 }
@@ -42,26 +45,37 @@ impl Display for Result {
     }
 }
 
-pub struct Lisp<'a> {
-    ctx: Context<'a>,
+pub struct Lisp {
+    ctx: Option<Context>,
 }
 
-impl Default for Lisp<'_> {
+impl Default for Lisp {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Lisp<'_> {
+impl Lisp {
     pub fn new() -> Self {
         Self {
-            ctx: Context::new(),
+            ctx: Some(Context::new()),
         }
     }
 
     pub fn evaluate(&mut self, expr: String) -> anyhow::Result<Result> {
         let tokens = token::tokenize(&expr)?;
         let expr = expr::parse(&tokens)?;
-        eval::evaluate(expr, &mut self.ctx).map(Result::from)
+        self.evaluate_expr(expr).map(Result::from)
+    }
+
+    fn evaluate_expr(&mut self, epxr: Expr) -> anyhow::Result<Result> {
+        match self.ctx.take() {
+            Some(ctx) => {
+                let (expr, ctx) = eval::evaluate(epxr, ctx)?;
+                self.ctx = Some(ctx);
+                Ok(Result::from(expr))
+            }
+            None => anyhow::bail!("Context is not initialized"),
+        }
     }
 }
