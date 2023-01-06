@@ -5,10 +5,29 @@
 [![Codecov][codecov-shield]][codecov-url]
 [![MIT][license-shield]][license-url]
 
-## Requirements
+my plain lisp implementation.
 
-* pre-commit
-* Commitizen
+## Features
+
+### REPL
+```
+$ cargo run
+> (+ 1 2)
+3
+> (* (+ 1 2) (- 3 5))
+-6
+```
+
+### Batch
+```
+$ cat ./samples/fibo.lisp 
+(
+(def fibo (n) (if (<= (n) 1.0) 1.0 (+ (fibo (- (n) 1.0)) (fibo (- (n) 2.0)))))
+(fibo 10.0)
+)
+$ cat ./samples/fibo.lisp  | cargo run
+(() 89)
+```
 
 ## License
 [MIT](https://github.com/ar90n/subulisp-rs/blob/main/LICENSE)
