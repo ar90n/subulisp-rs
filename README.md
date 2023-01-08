@@ -32,7 +32,7 @@ $ cat ./samples/fibo.lisp  | cargo run
 ## License
 [MIT](https://github.com/ar90n/subulisp-rs/blob/main/LICENSE)
 
-[build-shiled]: https://img.shields.io/github/workflow/status/ar90n/subulisp-rs/CI%20testing/main
+[build-shiled]: https://img.shields.io/github/actions/workflow/status/ar90n/subulisp-rs/ci-testing.yml
 [build-url]: https://github.com/ar90n/subulisp-rs/actions/workflows/ci-testing.yml
 [contributors-shield]: https://img.shields.io/github/contributors/ar90n/subulisp-rs.svg?style=flat
 [contributors-url]: https://github.com/ar90n/subulisp-rs/graphs/contributors
