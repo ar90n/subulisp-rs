@@ -24,7 +24,7 @@ jobs:
         components: rustfmt, clippy
     - uses: Swatinem/rust-cache@v2
     - uses: pre-commit/action@v3.0.0
-    - uses: pre-commit-ci/lite-action@v1.0.0
+    - uses: pre-commit-ci/lite-action@v1.1.0
       if: always()  
     - name: Build
       run: cargo build --verbose
